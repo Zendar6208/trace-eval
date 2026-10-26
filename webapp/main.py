@@ -16,6 +16,8 @@ from typing import Any, Literal
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field, ValidationError
 
 from trace_eval.evaluator import evaluate_run
@@ -61,9 +63,17 @@ def get_nli_evaluator() -> NLIEvaluator | None:
                 device="cpu",
                 local_files_only=True,
             )
-        except Exception as e:
-            print(f"Warning: NLI model failed to load locally: {e}")
-            _nli_evaluator = None
+        except Exception:
+            try:
+                _nli_evaluator = NLIEvaluator(
+                    model_name="cross-encoder/nli-distilroberta-base",
+                    revision="b14d131f9d32668a5e6a982729b57ff6ed5dfcbd",
+                    device="cpu",
+                    local_files_only=False,
+                )
+            except Exception as e:
+                print(f"Warning: NLI model failed to load: {e}")
+                _nli_evaluator = None
     return _nli_evaluator
 
 
@@ -235,6 +245,9 @@ def _format_run_response(run_result: RunResult, dataset: Dataset | None = None) 
 
 @app.get("/")
 async def root():
+    index_file = FRONTEND_DIST / "index.html"
+    if index_file.exists():
+        return FileResponse(index_file)
     return {"service": "TRACE AI", "version": "0.1.0", "status": "ready"}
 
 
@@ -398,11 +411,18 @@ async def nli_status():
     try:
         from trace_eval.nli import SANITY_PAIRS, NLIEvaluator
 
-        ev = NLIEvaluator(
-            model_name="cross-encoder/nli-distilroberta-base",
-            revision="b14d131f9d32668a5e6a982729b57ff6ed5dfcbd",
-            local_files_only=True,
-        )
+        try:
+            ev = NLIEvaluator(
+                model_name="cross-encoder/nli-distilroberta-base",
+                revision="b14d131f9d32668a5e6a982729b57ff6ed5dfcbd",
+                local_files_only=True,
+            )
+        except Exception:
+            ev = NLIEvaluator(
+                model_name="cross-encoder/nli-distilroberta-base",
+                revision="b14d131f9d32668a5e6a982729b57ff6ed5dfcbd",
+                local_files_only=False,
+            )
         pairs = [(p[0], p[1]) for p in SANITY_PAIRS]
         preds = ev.predict(pairs)
         checks = []
@@ -436,3 +456,27 @@ async def nli_status():
             "available": False,
             "error": str(e),
         }
+
+
+# ── Static Frontend Serving ───────────────────────────────────────────────────
+FRONTEND_DIST = BASE_DIR.parent / "frontend" / "dist"
+if (FRONTEND_DIST / "assets").exists():
+    app.mount("/assets", StaticFiles(directory=str(FRONTEND_DIST / "assets")), name="assets")
+
+
+@app.get("/{full_path:path}")
+async def serve_spa(full_path: str):
+    """Serve SPA index.html for client-side routing, or static assets."""
+    if (
+        full_path.startswith("api/")
+        or full_path.startswith("docs")
+        or full_path.startswith("openapi.json")
+    ):
+        raise HTTPException(status_code=404, detail="Not Found")
+    file_path = FRONTEND_DIST / full_path
+    if full_path and file_path.is_file():
+        return FileResponse(file_path)
+    index_file = FRONTEND_DIST / "index.html"
+    if index_file.exists():
+        return FileResponse(index_file)
+    return {"message": "TRACE AI API running. Frontend build not found."}
