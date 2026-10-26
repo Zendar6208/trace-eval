@@ -73,7 +73,7 @@ class UploadEvaluationRequest(BaseModel):
 
 
 # ── Helpers ────────────────────────────────────────────────────────────────────
-def _item_summary(item: Any) -> dict:
+def _item_summary(item: Any, question: str | None = None) -> dict:
     """Convert a RunItemResult to a frontend-friendly summary dict."""
     m = item.metrics
     ret = m.retrieval
@@ -83,6 +83,7 @@ def _item_summary(item: Any) -> dict:
 
     return {
         "item_id": item.item_id,
+        "question": question,
         "origin": item.origin,
         "failure_types": item.failure_types,
         "retrieval": {
@@ -183,8 +184,11 @@ def _item_evidence(item: Any, dataset: Dataset, submission: Submission) -> dict:
     }
 
 
-def _format_run_response(run_result: RunResult) -> dict:
-    items_summary = [_item_summary(item) for item in run_result.items]
+def _format_run_response(run_result: RunResult, dataset: Dataset | None = None) -> dict:
+    question_map = {i.id: i.question for i in dataset.items} if dataset else {}
+    items_summary = [
+        _item_summary(item, question_map.get(item.item_id)) for item in run_result.items
+    ]
     combined = run_result.summary.combined
     recorded = run_result.summary.recorded_system
     synthetic = run_result.summary.synthetic_fixture
@@ -193,8 +197,10 @@ def _format_run_response(run_result: RunResult) -> dict:
         "run_id": run_result.run_id,
         "result_hash": run_result.result_hash,
         "methodology_version": "1.0.0",
-        "nli_enabled": False,
-        "evaluation_tier": "Tier 0 (deterministic)",
+        "nli_enabled": run_result.config.nli_model is not None,
+        "evaluation_tier": "Tier 1 (hybrid deterministic + NLI)"
+        if run_result.config.nli_model is not None
+        else "Tier 0 (deterministic)",
         "summary": {
             "combined": combined.model_dump() if combined else None,
             "recorded_system": recorded.model_dump() if recorded else None,
@@ -251,7 +257,7 @@ async def run_sample_evaluation():
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Evaluation failed: {e}") from e
 
-    return _format_run_response(run_result)
+    return _format_run_response(run_result, dataset)
 
 
 @app.post("/api/evaluate/upload")
@@ -312,7 +318,7 @@ async def run_upload_evaluation(req: UploadEvaluationRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Evaluation failed: {e}") from e
 
-    return _format_run_response(run_result)
+    return _format_run_response(run_result, parsed_dataset)
 
 
 @app.get("/api/evaluate/item/{item_id}")

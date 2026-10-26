@@ -2,17 +2,24 @@
 
 @layer base {
   :root {
-    --bg: #F8F7F4;
-    --surface: #FFFFFF;
-    --text-primary: #171717;
-    --text-muted: #73736D;
-    --border: #E5E3DD;
-    --accent: #174D3A;
-    --accent-light: #E4EBE4;
-    --error: #C4513D;
-    --error-light: #FBEBE8;
-    --success: #2E6B4F;
-    --success-light: #EBF3EE;
+    --bg: #0C0F17;
+    --surface: #141824;
+    --surface-hover: #1A2030;
+    --surface-subtle: #0F121C;
+    --border: #1F2639;
+    --border-light: #2A324B;
+    --text-primary: #F8FAFC;
+    --text-secondary: #94A3B8;
+    --text-muted: #64748B;
+    --accent: #10B981;
+    --accent-hover: #059669;
+    --accent-tint: rgba(16, 185, 129, 0.12);
+    --accent-border: rgba(16, 185, 129, 0.3);
+    --error: #F87171;
+    --error-tint: rgba(239, 68, 68, 0.12);
+    --error-border: rgba(239, 68, 68, 0.28);
+    --warning: #FBBF24;
+    --warning-tint: rgba(245, 158, 11, 0.12);
   }
 
   body {
@@ -27,5 +34,14 @@
 
   * {
     border-color: var(--border);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, ::before, ::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
   }
 }

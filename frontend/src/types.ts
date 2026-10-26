@@ -11,6 +11,7 @@ export interface MetricSummary {
 
 export interface EvaluationItemSummary {
   item_id: string;
+  question?: string | null;
   origin: "recorded_system" | "synthetic_fixture";
   failure_types: string[];
   retrieval: {
