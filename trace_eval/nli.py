@@ -182,14 +182,35 @@ class NLIEvaluator:
             tokenizer_kwargs["revision"] = self.revision
             model_kwargs["revision"] = self.revision
 
-        self._tokenizer = AutoTokenizer.from_pretrained(
-            self.model_name,
-            **tokenizer_kwargs,
-        )
-        self._model = AutoModelForSequenceClassification.from_pretrained(
-            self.model_name,
-            **model_kwargs,
-        )
+        try:
+            self._tokenizer = AutoTokenizer.from_pretrained(
+                self.model_name,
+                **tokenizer_kwargs,
+            )
+        except Exception:
+            if self.local_files_only:
+                tokenizer_kwargs["local_files_only"] = False
+                self._tokenizer = AutoTokenizer.from_pretrained(
+                    self.model_name,
+                    **tokenizer_kwargs,
+                )
+            else:
+                raise
+
+        try:
+            self._model = AutoModelForSequenceClassification.from_pretrained(
+                self.model_name,
+                **model_kwargs,
+            )
+        except Exception:
+            if self.local_files_only:
+                model_kwargs["local_files_only"] = False
+                self._model = AutoModelForSequenceClassification.from_pretrained(
+                    self.model_name,
+                    **model_kwargs,
+                )
+            else:
+                raise
         self._model.to(self.device)
         self._model.eval()
 
