@@ -28,6 +28,9 @@ def normalize_unicode_and_newlines(text: str) -> str:
     return nfc_text.replace("\r\n", "\n").replace("\r", "\n")
 
 
+normalize_text = normalize_unicode_and_newlines
+
+
 def strip_citation_markers(text: str) -> str:
     """Remove citation markers from answer text per Methodology CA-8."""
     if not text:
