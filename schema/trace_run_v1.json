@@ -129,6 +129,108 @@
       "title": "BootstrapConfig",
       "type": "object"
     },
+    "CalibrationGrid": {
+      "additionalProperties": false,
+      "description": "Grid search parameters for calibration per Section 5.",
+      "properties": {
+        "max_threshold": {
+          "default": 0.95,
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Max Threshold",
+          "type": "number"
+        },
+        "min_threshold": {
+          "default": 0.05,
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Min Threshold",
+          "type": "number"
+        },
+        "step": {
+          "default": 0.05,
+          "exclusiveMinimum": 0.0,
+          "maximum": 1.0,
+          "title": "Step",
+          "type": "number"
+        }
+      },
+      "title": "CalibrationGrid",
+      "type": "object"
+    },
+    "CalibrationRecord": {
+      "additionalProperties": false,
+      "description": "Pre-registered calibration record per Methodology Section 5.",
+      "properties": {
+        "chosen_thresholds": {
+          "$ref": "#/$defs/CalibrationThresholds",
+          "description": "Optimized threshold pair"
+        },
+        "dev_split_hash": {
+          "description": "Content hash of dev split items",
+          "minLength": 1,
+          "title": "Dev Split Hash",
+          "type": "string"
+        },
+        "grid": {
+          "$ref": "#/$defs/CalibrationGrid",
+          "description": "Search grid"
+        },
+        "macro_f1": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Achieved macro-F1 on dev set",
+          "title": "Macro F1"
+        },
+        "objective": {
+          "default": "macro_f1",
+          "description": "Optimization objective (e.g. macro_f1)",
+          "title": "Objective",
+          "type": "string"
+        }
+      },
+      "required": [
+        "dev_split_hash",
+        "chosen_thresholds"
+      ],
+      "title": "CalibrationRecord",
+      "type": "object"
+    },
+    "CalibrationThresholds": {
+      "additionalProperties": false,
+      "description": "Calibrated entailment and contradiction thresholds.",
+      "properties": {
+        "contradict": {
+          "description": "Calibrated contradiction threshold",
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Contradict",
+          "type": "number"
+        },
+        "entail": {
+          "description": "Calibrated entailment threshold",
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Entail",
+          "type": "number"
+        }
+      },
+      "required": [
+        "entail",
+        "contradict"
+      ],
+      "title": "CalibrationThresholds",
+      "type": "object"
+    },
     "CitationMetrics": {
       "additionalProperties": false,
       "description": "Citation parsing and support evaluation metrics.",
@@ -655,6 +757,19 @@
       "additionalProperties": false,
       "description": "Configuration and cryptographic provenance for the NLI evaluator model.",
       "properties": {
+        "device": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Execution device (e.g. cpu, cuda)",
+          "title": "Device"
+        },
         "model_name": {
           "description": "Model identifier or local path",
           "minLength": 1,
@@ -673,6 +788,19 @@
           "default": null,
           "description": "Model revision or commit hash",
           "title": "Revision"
+        },
+        "torch_dtype": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "PyTorch precision (e.g. float32, bfloat16)",
+          "title": "Torch Dtype"
         },
         "weights_sha256": {
           "anyOf": [
@@ -769,6 +897,18 @@
           ],
           "default": null,
           "description": "Bootstrap resampling parameters"
+        },
+        "calibration": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/CalibrationRecord"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Pre-registered calibration record per Section 5"
         },
         "citation_style": {
           "default": "id",

@@ -13,9 +13,7 @@ from trace_eval.hashing import (
     verify_run_hashes,
 )
 from trace_eval.schema.dataset import Dataset
-from trace_eval.schema.labels import LabelsDocument
 from trace_eval.schema.run import RunResult
-from trace_eval.schema.submission import Submission
 
 FIXTURES_DIR = Path(__file__).parent / "fixtures"
 
@@ -30,23 +28,35 @@ def test_golden_hashes_match_committed_values():
     golden_hashes = load_fixture("golden_hashes.json")
 
     dataset_data = load_fixture("golden_dataset.json")
-    dataset_model = Dataset.model_validate(dataset_data)
-    assert hash_dataset(dataset_model) == golden_hashes["dataset_content_sha256"]
+    assert hash_dataset(dataset_data) == golden_hashes["dataset_content_sha256"]
 
     submission_data = load_fixture("golden_submission.json")
-    submission_model = Submission.model_validate(submission_data)
-    assert hash_submission(submission_model) == golden_hashes["submission_content_sha256"]
+    assert hash_submission(submission_data) == golden_hashes["submission_content_sha256"]
 
     labels_data = load_fixture("golden_labels.json")
-    labels_model = LabelsDocument.model_validate(labels_data)
-    assert hash_labels(labels_model) == golden_hashes["labels_content_sha256"]
+    assert hash_labels(labels_data) == golden_hashes["labels_content_sha256"]
 
     run_data = load_fixture("golden_run.json")
-    run_model = RunResult.model_validate(run_data)
-    result_hash, run_id = compute_run_hashes(run_model)
+    result_hash, run_id = compute_run_hashes(run_data)
     assert result_hash == golden_hashes["run_result_hash"]
     assert run_id == golden_hashes["run_id"]
     assert run_id == result_hash[:16]
+    assert verify_run_hashes(run_data)
+
+
+def test_corrected_m0_golden_hashes():
+    """Verify that versioned corrected fixtures with calibration and graded relevance match expected digests."""
+    corrected_hashes = load_fixture("golden_hashes_m0_corrected.json")
+
+    dataset_data = load_fixture("golden_dataset_m0_corrected.json")
+    dataset_model = Dataset.model_validate(dataset_data)
+    assert hash_dataset(dataset_model) == corrected_hashes["dataset_content_sha256"]
+
+    run_data = load_fixture("golden_run_m0_corrected.json")
+    run_model = RunResult.model_validate(run_data)
+    result_hash, run_id = compute_run_hashes(run_model)
+    assert result_hash == corrected_hashes["run_result_hash"]
+    assert run_id == corrected_hashes["run_id"]
     assert verify_run_hashes(run_model)
 
 

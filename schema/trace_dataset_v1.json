@@ -12,6 +12,14 @@
           "title": "Gold Passage Ids",
           "type": "array"
         },
+        "gold_passage_relevance": {
+          "description": "Optional graded relevance (1-3) per passage for nDCG calculations",
+          "items": {
+            "$ref": "#/$defs/GoldPassageRelevance"
+          },
+          "title": "Gold Passage Relevance",
+          "type": "array"
+        },
         "group_id": {
           "description": "Case grouping identifier shared by item variants for cluster bootstrapping",
           "title": "Group Id",
@@ -81,6 +89,31 @@
         "question"
       ],
       "title": "DatasetItem",
+      "type": "object"
+    },
+    "GoldPassageRelevance": {
+      "additionalProperties": false,
+      "description": "Graded relevance assessment for a corpus passage relative to a benchmark item.",
+      "properties": {
+        "passage_id": {
+          "description": "Corpus passage identifier",
+          "minLength": 1,
+          "title": "Passage Id",
+          "type": "string"
+        },
+        "relevance": {
+          "description": "Graded relevance score: 1 (marginally relevant), 2 (relevant), 3 (essential/gold)",
+          "maximum": 3,
+          "minimum": 1,
+          "title": "Relevance",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "passage_id",
+        "relevance"
+      ],
+      "title": "GoldPassageRelevance",
       "type": "object"
     },
     "Passage": {

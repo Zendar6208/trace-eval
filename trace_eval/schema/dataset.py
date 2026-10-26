@@ -53,6 +53,20 @@ class RequiredFact(BaseModel):
     )
 
 
+class GoldPassageRelevance(BaseModel):
+    """Graded relevance assessment for a corpus passage relative to a benchmark item."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    passage_id: str = Field(..., min_length=1, description="Corpus passage identifier")
+    relevance: int = Field(
+        ...,
+        ge=1,
+        le=3,
+        description="Graded relevance score: 1 (marginally relevant), 2 (relevant), 3 (essential/gold)",
+    )
+
+
 class DatasetItem(BaseModel):
     """A single evaluation benchmark item."""
 
@@ -76,6 +90,10 @@ class DatasetItem(BaseModel):
         default_factory=list,
         description="IDs of corpus passages that ground the correct answer",
     )
+    gold_passage_relevance: list[GoldPassageRelevance] = Field(
+        default_factory=list,
+        description="Optional graded relevance (1-3) per passage for nDCG calculations",
+    )
     reference_answers: list[str] = Field(
         default_factory=list,
         description="One or more gold reference answers against which correctness is measured",
@@ -88,6 +106,16 @@ class DatasetItem(BaseModel):
         default=None,
         description="Optional domain, category, or difficulty tags",
     )
+
+    def get_gold_relevance_map(self) -> dict[str, int]:
+        """Return mapping of passage_id to graded relevance score (1-3).
+
+        If gold_passage_relevance is specified, returns those scores.
+        Otherwise, all gold_passage_ids receive the default gold relevance score of 3.
+        """
+        if self.gold_passage_relevance:
+            return {r.passage_id: r.relevance for r in self.gold_passage_relevance}
+        return dict.fromkeys(self.gold_passage_ids, 3)
 
     @field_validator("required_facts")
     @classmethod
@@ -155,6 +183,12 @@ class Dataset(BaseModel):
                 if gold_id not in passage_ids:
                     raise ValueError(
                         f"Item '{item.id}' references gold passage ID '{gold_id}' not found in corpus"
+                    )
+
+            for rel in item.gold_passage_relevance:
+                if rel.passage_id not in passage_ids:
+                    raise ValueError(
+                        f"Item '{item.id}' references gold relevance passage ID '{rel.passage_id}' not found in corpus"
                     )
 
         return self

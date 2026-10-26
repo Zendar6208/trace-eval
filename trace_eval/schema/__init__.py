@@ -10,6 +10,7 @@ from trace_eval.schema.comparison import (
 from trace_eval.schema.dataset import (
     Dataset,
     DatasetItem,
+    GoldPassageRelevance,
     Passage,
     RequiredFact,
 )
@@ -22,6 +23,9 @@ from trace_eval.schema.labels import (
 from trace_eval.schema.run import (
     AggregateMetrics,
     BootstrapConfig,
+    CalibrationGrid,
+    CalibrationRecord,
+    CalibrationThresholds,
     CitationMetrics,
     CitationUnitEvidence,
     ClaimSentenceEvidence,
@@ -53,6 +57,7 @@ __all__ = [
     # Dataset
     "Dataset",
     "DatasetItem",
+    "GoldPassageRelevance",
     "Passage",
     "RequiredFact",
     # Submission
@@ -86,6 +91,9 @@ __all__ = [
     "EnvironmentMetadata",
     "InputOriginSummary",
     "NLIModelConfig",
+    "CalibrationRecord",
+    "CalibrationGrid",
+    "CalibrationThresholds",
     "BootstrapConfig",
     # Comparison
     "ComparisonResult",

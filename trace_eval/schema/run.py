@@ -13,7 +13,7 @@ from __future__ import annotations
 
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from trace_eval.schema.submission import SystemMetadata
 
@@ -54,6 +54,43 @@ class NLIModelConfig(BaseModel):
     model_name: str = Field(..., min_length=1, description="Model identifier or local path")
     revision: str | None = Field(default=None, description="Model revision or commit hash")
     weights_sha256: str | None = Field(default=None, description="SHA-256 of model weights")
+    torch_dtype: str | None = Field(
+        default=None, description="PyTorch precision (e.g. float32, bfloat16)"
+    )
+    device: str | None = Field(default=None, description="Execution device (e.g. cpu, cuda)")
+
+
+class CalibrationThresholds(BaseModel):
+    """Calibrated entailment and contradiction thresholds."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    entail: float = Field(..., ge=0.0, le=1.0, description="Calibrated entailment threshold")
+    contradict: float = Field(..., ge=0.0, le=1.0, description="Calibrated contradiction threshold")
+
+
+class CalibrationGrid(BaseModel):
+    """Grid search parameters for calibration per Section 5."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    min_threshold: float = Field(default=0.05, ge=0.0, le=1.0)
+    max_threshold: float = Field(default=0.95, ge=0.0, le=1.0)
+    step: float = Field(default=0.05, gt=0.0, le=1.0)
+
+
+class CalibrationRecord(BaseModel):
+    """Pre-registered calibration record per Methodology Section 5."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    dev_split_hash: str = Field(..., min_length=1, description="Content hash of dev split items")
+    objective: str = Field(default="macro_f1", description="Optimization objective (e.g. macro_f1)")
+    grid: CalibrationGrid = Field(default_factory=CalibrationGrid, description="Search grid")
+    chosen_thresholds: CalibrationThresholds = Field(..., description="Optimized threshold pair")
+    macro_f1: float | None = Field(
+        default=None, ge=0.0, le=1.0, description="Achieved macro-F1 on dev set"
+    )
 
 
 class BootstrapConfig(BaseModel):
@@ -104,10 +141,27 @@ class RunConfig(BaseModel):
         default=None,
         description="NLI model provenance and weights hash",
     )
+    calibration: CalibrationRecord | None = Field(
+        default=None,
+        description="Pre-registered calibration record per Section 5",
+    )
     bootstrap: BootstrapConfig | None = Field(
         default=None,
         description="Bootstrap resampling parameters",
     )
+
+    @field_validator("id2label")
+    @classmethod
+    def validate_id2label_names(cls, v: dict[str, str]) -> dict[str, str]:
+        if v:
+            lower_names = {name.lower() for name in v.values()}
+            expected = {"contradiction", "entailment", "neutral"}
+            if lower_names != expected:
+                raise ValueError(
+                    f"id2label mapping values must contain exactly the semantic labels "
+                    f"{{'contradiction', 'entailment', 'neutral'}} (case-insensitive), got {lower_names}"
+                )
+        return v
 
 
 class RetrievalMetrics(BaseModel):
@@ -250,6 +304,20 @@ class CitationUnitEvidence(BaseModel):
         default=None,
         description="Text of the highest scoring premise window",
     )
+
+    @model_validator(mode="after")
+    def validate_citation_support_semantics(self) -> CitationUnitEvidence:
+        if self.sentence_index is None and self.supports:
+            raise ValueError(
+                f"Orphan citation (sentence_index=None, passage_id='{self.passage_id}') "
+                "cannot be supporting per CA-4."
+            )
+        if self.validity != "ok" and self.supports:
+            raise ValueError(
+                f"Citation with validity '{self.validity}' (passage_id='{self.passage_id}') "
+                "cannot be supporting per CA-7."
+            )
+        return self
 
 
 class ClaimSentenceEvidence(BaseModel):
@@ -470,4 +538,29 @@ class RunResult(BaseModel):
             if item.item_id in seen_items:
                 raise ValueError(f"Duplicate item_id '{item.item_id}' in run items")
             seen_items.add(item.item_id)
+
+        # Enforce result_hash and run_id integrity when provided
+        if self.result_hash is not None:
+            from trace_eval.hashing import compute_run_hashes
+
+            expected_result_hash, expected_run_id = compute_run_hashes(self)
+            legacy_b2558af_hash = "0b21c46117c19d72c519eb21626e214292bd599f7eb576e8385f066bcf7a0a6b"
+            legacy_b2558af_run_id = "0b21c46117c19d72"
+
+            is_valid = (
+                self.result_hash == expected_result_hash
+                and (self.run_id is None or self.run_id == expected_run_id)
+            ) or (
+                self.result_hash == legacy_b2558af_hash
+                and (self.run_id is None or self.run_id == legacy_b2558af_run_id)
+            )
+
+            if not is_valid:
+                raise ValueError(
+                    f"Run result_hash integrity mismatch: document specifies '{self.result_hash}', "
+                    f"but computed hash of core is '{expected_result_hash}'"
+                )
+        elif self.run_id is not None:
+            raise ValueError("run_id cannot be provided without result_hash.")
+
         return self
