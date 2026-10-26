@@ -19,6 +19,8 @@ import {
 } from 'lucide-react';
 import type { EvaluationRunResponse, ItemDetailResponse } from './types';
 
+const API_BASE = (import.meta as any).env?.VITE_API_URL || '';
+
 // Plain-English diagnostic mappings for failure types
 const FAILURE_DESCRIPTIONS: Record<string, { short: string; explanation: string }> = {
   RETRIEVAL_MISS: {
@@ -185,7 +187,7 @@ export default function App() {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch('/api/evaluate/sample', { method: 'POST' });
+      const res = await fetch(`${API_BASE}/api/evaluate/sample`, { method: 'POST' });
       if (!res.ok) {
         const text = await res.text();
         throw new Error(text || `HTTP error ${res.status}`);
@@ -230,7 +232,7 @@ export default function App() {
         throw new Error('Submission file is not valid JSON.');
       }
 
-      const res = await fetch('/api/evaluate/upload', {
+      const res = await fetch(`${API_BASE}/api/evaluate/upload`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -265,7 +267,7 @@ export default function App() {
     setActivePassageId(null);
     setDetailLoading(true);
     try {
-      const res = await fetch(`/api/evaluate/item/${itemId}`);
+      const res = await fetch(`${API_BASE}/api/evaluate/item/${itemId}`);
       if (!res.ok) {
         throw new Error(`Failed to load evidence for item ${itemId}`);
       }
@@ -326,7 +328,7 @@ export default function App() {
 
   const downloadSample = async (type: 'dataset' | 'submission') => {
     try {
-      const res = await fetch(`/api/sample/${type}`);
+      const res = await fetch(`${API_BASE}/api/sample/${type}`);
       if (!res.ok) throw new Error('Failed to fetch template');
       const blob = await res.blob();
       const url = window.URL.createObjectURL(blob);

@@ -57,3 +57,6 @@ htmlcov/
 # OS files
 .DS_Store
 Thumbs.db
+*.exe
+.vercel/
+.vercel_cli/
