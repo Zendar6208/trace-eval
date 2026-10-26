@@ -378,7 +378,7 @@ export default function App() {
             </button>
             <div className="h-4 w-[1px] bg-[#1F2639]" />
             <a
-              href="https://github.com/darshan-sheth/trace-eval"
+              href="https://github.com/Zendar6208/trace-eval"
               target="_blank"
               rel="noreferrer"
               className="inline-flex items-center gap-1.5 text-[#94A3B8] hover:text-[#F8FAFC] font-medium transition active:scale-95"
