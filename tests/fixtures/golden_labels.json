@@ -1,0 +1,52 @@
+{
+  "schema_version": "trace.labels/1.0",
+  "dataset_id": "sample-finance-benchmark",
+  "submission_content_sha256": "89a8cb70bc5626b7c62704480f14d4b492e0581fc08d05d2015f7ae898ea2fe4",
+  "annotator_notes": "Annotated by primary annotator; excluded from content hash.",
+  "items": [
+    {
+      "item_id": "item-001",
+      "annotator_id": "annotator-01",
+      "correctness_verdict": "correct",
+      "sentences": [
+        {
+          "sentence_index": 0,
+          "sentence_text": "Refunds are processed within 30 business days.",
+          "is_claim": true,
+          "grounding_label": "supported",
+          "citation_labels": [
+            {
+              "passage_id": "p01",
+              "supports": true,
+              "notes": null
+            }
+          ],
+          "notes": null
+        }
+      ],
+      "notes": null
+    },
+    {
+      "item_id": "item-002",
+      "annotator_id": "annotator-01",
+      "correctness_verdict": "incorrect",
+      "sentences": [
+        {
+          "sentence_index": 0,
+          "sentence_text": "You can cancel anytime.",
+          "is_claim": true,
+          "grounding_label": "contradicted",
+          "citation_labels": [
+            {
+              "passage_id": "p99",
+              "supports": false,
+              "notes": "Phantom citation"
+            }
+          ],
+          "notes": null
+        }
+      ],
+      "notes": null
+    }
+  ]
+}

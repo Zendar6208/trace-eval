@@ -1,0 +1,1297 @@
+{
+  "$defs": {
+    "AggregateMetrics": {
+      "additionalProperties": false,
+      "description": "Aggregated evaluation metrics across a subset of benchmark items.",
+      "properties": {
+        "accuracy": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Fraction of items with correct verdict",
+          "title": "Accuracy"
+        },
+        "count": {
+          "description": "Number of items evaluated",
+          "minimum": 0,
+          "title": "Count",
+          "type": "integer"
+        },
+        "mean_citation_precision": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Average citation precision",
+          "title": "Mean Citation Precision"
+        },
+        "mean_citation_recall": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Average citation recall",
+          "title": "Mean Citation Recall"
+        },
+        "mean_fact_recall": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Average fact recall",
+          "title": "Mean Fact Recall"
+        },
+        "mean_phantom_rate": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Average phantom citation rate",
+          "title": "Mean Phantom Rate"
+        },
+        "mean_token_f1": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Average token F1",
+          "title": "Mean Token F1"
+        },
+        "mean_unsupported_claim_rate": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Average unsupported claim rate",
+          "title": "Mean Unsupported Claim Rate"
+        }
+      },
+      "required": [
+        "count"
+      ],
+      "title": "AggregateMetrics",
+      "type": "object"
+    },
+    "BootstrapConfig": {
+      "additionalProperties": false,
+      "description": "Cluster bootstrap configuration for confidence intervals.",
+      "properties": {
+        "resamples": {
+          "default": 10000,
+          "description": "Number of bootstrap resamples",
+          "minimum": 100,
+          "title": "Resamples",
+          "type": "integer"
+        },
+        "seed": {
+          "default": 42,
+          "description": "Fixed random seed for deterministic resampling",
+          "title": "Seed",
+          "type": "integer"
+        }
+      },
+      "title": "BootstrapConfig",
+      "type": "object"
+    },
+    "CitationMetrics": {
+      "additionalProperties": false,
+      "description": "Citation parsing and support evaluation metrics.",
+      "properties": {
+        "citation_precision": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Supporting citation units divided by all citation units",
+          "title": "Citation Precision"
+        },
+        "citation_recall": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Citation-supported claim sentences divided by all claim sentences",
+          "title": "Citation Recall"
+        },
+        "cites_gold": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Diagnostic: whether any cited unit points to a gold passage",
+          "title": "Cites Gold"
+        },
+        "phantom_rate": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Fraction of citation units citing non-retrieved or non-existent passages",
+          "title": "Phantom Rate"
+        },
+        "uncited_claim_rate": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Fraction of assessable claim sentences lacking citations",
+          "title": "Uncited Claim Rate"
+        }
+      },
+      "title": "CitationMetrics",
+      "type": "object"
+    },
+    "CitationUnitEvidence": {
+      "additionalProperties": false,
+      "description": "Evidence for an individual citation unit.",
+      "properties": {
+        "best_window": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Text of the highest scoring premise window",
+          "title": "Best Window"
+        },
+        "entail_prob": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Maximum entailment probability across premise windows",
+          "title": "Entail Prob"
+        },
+        "passage_id": {
+          "description": "Cited passage ID",
+          "minLength": 1,
+          "title": "Passage Id",
+          "type": "string"
+        },
+        "sentence_index": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Attached sentence index, or null if orphan citation",
+          "title": "Sentence Index"
+        },
+        "supports": {
+          "default": false,
+          "description": "Whether passage window entails the attached claim",
+          "title": "Supports",
+          "type": "boolean"
+        },
+        "validity": {
+          "description": "Citation marker validity status per CA-7",
+          "enum": [
+            "ok",
+            "not_retrieved",
+            "unknown_id",
+            "index_out_of_range"
+          ],
+          "title": "Validity",
+          "type": "string"
+        }
+      },
+      "required": [
+        "passage_id",
+        "validity"
+      ],
+      "title": "CitationUnitEvidence",
+      "type": "object"
+    },
+    "ClaimSentenceEvidence": {
+      "additionalProperties": false,
+      "description": "Evidence for an individual answer claim sentence.",
+      "properties": {
+        "best_contradict_prob": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Highest contradiction probability",
+          "title": "Best Contradict Prob"
+        },
+        "best_entail_prob": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Highest entailment probability",
+          "title": "Best Entail Prob"
+        },
+        "grounding_label": {
+          "description": "Grounding verdict",
+          "enum": [
+            "supported",
+            "unsupported",
+            "contradicted",
+            "not_assessable"
+          ],
+          "title": "Grounding Label",
+          "type": "string"
+        },
+        "is_assessable": {
+          "default": true,
+          "description": "False if fewer than 3 word tokens",
+          "title": "Is Assessable",
+          "type": "boolean"
+        },
+        "numeric_guard_triggered": {
+          "default": false,
+          "description": "Whether numeric guard capped label at unsupported",
+          "title": "Numeric Guard Triggered",
+          "type": "boolean"
+        },
+        "sentence_index": {
+          "description": "0-based sentence index",
+          "minimum": 0,
+          "title": "Sentence Index",
+          "type": "integer"
+        },
+        "sentence_text": {
+          "description": "Cleaned sentence text (markers stripped)",
+          "title": "Sentence Text",
+          "type": "string"
+        }
+      },
+      "required": [
+        "sentence_index",
+        "sentence_text",
+        "grounding_label"
+      ],
+      "title": "ClaimSentenceEvidence",
+      "type": "object"
+    },
+    "CorrectnessMetrics": {
+      "additionalProperties": false,
+      "description": "Correctness evaluation metrics.",
+      "properties": {
+        "contradicts_reference": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Whether the answer contradicts the gold reference answer",
+          "title": "Contradicts Reference"
+        },
+        "fact_recall": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Fraction of required facts matched",
+          "title": "Fact Recall"
+        },
+        "token_f1": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "SQuAD-style token F1 score against reference answer",
+          "title": "Token F1"
+        },
+        "verdict": {
+          "anyOf": [
+            {
+              "enum": [
+                "correct",
+                "partial",
+                "incorrect"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Deterministic correctness verdict",
+          "title": "Verdict"
+        }
+      },
+      "title": "CorrectnessMetrics",
+      "type": "object"
+    },
+    "EnvironmentMetadata": {
+      "additionalProperties": false,
+      "description": "Execution environment metadata (excluded from result hash).",
+      "properties": {
+        "duration_seconds": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Total runtime in seconds",
+          "title": "Duration Seconds"
+        },
+        "git_sha": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Current repository commit hash",
+          "title": "Git Sha"
+        },
+        "hostname": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Executing host identifier",
+          "title": "Hostname"
+        },
+        "library_versions": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "Pinned library versions",
+          "title": "Library Versions",
+          "type": "object"
+        },
+        "os": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Operating system details",
+          "title": "Os"
+        },
+        "python_version": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Python runtime version",
+          "title": "Python Version"
+        },
+        "thread_count": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Worker thread count",
+          "title": "Thread Count"
+        },
+        "timestamp": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Run execution start timestamp",
+          "title": "Timestamp"
+        }
+      },
+      "title": "EnvironmentMetadata",
+      "type": "object"
+    },
+    "GroundingMetrics": {
+      "additionalProperties": false,
+      "description": "Grounding evaluation metrics.",
+      "properties": {
+        "is_unsupported_answer": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "True if any assessable claim is not supported, or unanswerable query was not refused",
+          "title": "Is Unsupported Answer"
+        },
+        "unsupported_claim_rate": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Fraction of assessable claim sentences that are unsupported or contradicted",
+          "title": "Unsupported Claim Rate"
+        }
+      },
+      "title": "GroundingMetrics",
+      "type": "object"
+    },
+    "InputOriginSummary": {
+      "additionalProperties": false,
+      "description": "Count of evaluated outputs by origin class (excluded from result hash).",
+      "properties": {
+        "recorded_system_count": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Recorded System Count",
+          "type": "integer"
+        },
+        "synthetic_fixture_count": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Synthetic Fixture Count",
+          "type": "integer"
+        },
+        "total_count": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Total Count",
+          "type": "integer"
+        }
+      },
+      "title": "InputOriginSummary",
+      "type": "object"
+    },
+    "ItemMetrics": {
+      "additionalProperties": false,
+      "description": "Composite item-level evaluation metrics.",
+      "properties": {
+        "citation": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/CitationMetrics"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Citation metrics"
+        },
+        "correctness": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/CorrectnessMetrics"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Correctness metrics"
+        },
+        "grounding": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/GroundingMetrics"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Grounding metrics"
+        },
+        "retrieval": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/RetrievalMetrics"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Retrieval metrics"
+        }
+      },
+      "title": "ItemMetrics",
+      "type": "object"
+    },
+    "NLIModelConfig": {
+      "additionalProperties": false,
+      "description": "Configuration and cryptographic provenance for the NLI evaluator model.",
+      "properties": {
+        "model_name": {
+          "description": "Model identifier or local path",
+          "minLength": 1,
+          "title": "Model Name",
+          "type": "string"
+        },
+        "revision": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Model revision or commit hash",
+          "title": "Revision"
+        },
+        "weights_sha256": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "SHA-256 of model weights",
+          "title": "Weights Sha256"
+        }
+      },
+      "required": [
+        "model_name"
+      ],
+      "title": "NLIModelConfig",
+      "type": "object"
+    },
+    "RetrievalMetrics": {
+      "additionalProperties": false,
+      "description": "Retrieval tier-0 evaluation metrics.",
+      "properties": {
+        "hit_at_k": {
+          "additionalProperties": {
+            "type": "number"
+          },
+          "description": "Hit rate at cutoffs (e.g. '1', '3', '5')",
+          "title": "Hit At K",
+          "type": "object"
+        },
+        "mrr": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Mean Reciprocal Rank",
+          "title": "Mrr"
+        },
+        "ndcg_at_k": {
+          "additionalProperties": {
+            "type": "number"
+          },
+          "description": "Normalized Discounted Cumulative Gain at cutoffs",
+          "title": "Ndcg At K",
+          "type": "object"
+        },
+        "precision_at_k": {
+          "additionalProperties": {
+            "type": "number"
+          },
+          "description": "Precision at cutoffs",
+          "title": "Precision At K",
+          "type": "object"
+        },
+        "recall_at_k": {
+          "additionalProperties": {
+            "type": "number"
+          },
+          "description": "Recall at cutoffs",
+          "title": "Recall At K",
+          "type": "object"
+        }
+      },
+      "title": "RetrievalMetrics",
+      "type": "object"
+    },
+    "RunConfig": {
+      "additionalProperties": false,
+      "description": "Complete evaluation configuration (included in hashed core).",
+      "properties": {
+        "batch_size": {
+          "default": 16,
+          "description": "Batch size for NLI model inference",
+          "minimum": 1,
+          "title": "Batch Size",
+          "type": "integer"
+        },
+        "bootstrap": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/BootstrapConfig"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Bootstrap resampling parameters"
+        },
+        "citation_style": {
+          "default": "id",
+          "description": "Citation marker parsing style",
+          "enum": [
+            "id",
+            "index"
+          ],
+          "title": "Citation Style",
+          "type": "string"
+        },
+        "id2label": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "Mapping from NLI output indices to semantic labels",
+          "title": "Id2Label",
+          "type": "object"
+        },
+        "max_length": {
+          "default": 512,
+          "description": "Max sequence length for NLI input",
+          "minimum": 64,
+          "title": "Max Length",
+          "type": "integer"
+        },
+        "nli_model": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/NLIModelConfig"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "NLI model provenance and weights hash"
+        },
+        "phantom_mode": {
+          "default": "bracket",
+          "description": "Phantom citation detection mode",
+          "enum": [
+            "bracket",
+            "known_only"
+          ],
+          "title": "Phantom Mode",
+          "type": "string"
+        },
+        "prefilter_top_m": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "BM25 prefilter window count (null disables prefilter)",
+          "title": "Prefilter Top M"
+        },
+        "require_citations": {
+          "default": true,
+          "description": "Whether system outputs are expected to provide citations",
+          "title": "Require Citations",
+          "type": "boolean"
+        },
+        "thresholds": {
+          "$ref": "#/$defs/RunThresholds",
+          "description": "Decision thresholds"
+        },
+        "truncation_policy": {
+          "default": "longest_first",
+          "description": "Tokenizer truncation mode",
+          "title": "Truncation Policy",
+          "type": "string"
+        },
+        "window_sentences": {
+          "default": 3,
+          "description": "Premise window size in consecutive sentences",
+          "maximum": 5,
+          "minimum": 1,
+          "title": "Window Sentences",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "thresholds"
+      ],
+      "title": "RunConfig",
+      "type": "object"
+    },
+    "RunDatasetReference": {
+      "additionalProperties": false,
+      "description": "Reference to the dataset evaluated.",
+      "properties": {
+        "content_sha256": {
+          "description": "Canonical content hash of the dataset",
+          "maxLength": 64,
+          "minLength": 64,
+          "title": "Content Sha256",
+          "type": "string"
+        },
+        "id": {
+          "description": "Dataset identifier",
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "content_sha256"
+      ],
+      "title": "RunDatasetReference",
+      "type": "object"
+    },
+    "RunItemEvidence": {
+      "additionalProperties": false,
+      "description": "Detailed evidence supporting evaluator judgments on an item.",
+      "properties": {
+        "citations": {
+          "description": "Citation unit analyses",
+          "items": {
+            "$ref": "#/$defs/CitationUnitEvidence"
+          },
+          "title": "Citations",
+          "type": "array"
+        },
+        "claims": {
+          "description": "Claim analyses",
+          "items": {
+            "$ref": "#/$defs/ClaimSentenceEvidence"
+          },
+          "title": "Claims",
+          "type": "array"
+        }
+      },
+      "title": "RunItemEvidence",
+      "type": "object"
+    },
+    "RunItemResult": {
+      "additionalProperties": false,
+      "description": "Evaluation result for an individual benchmark item.",
+      "properties": {
+        "evidence": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/RunItemEvidence"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Detailed evidence objects for inspection"
+        },
+        "failure_types": {
+          "description": "Deterministic multi-label failure types (PASS if no other applies)",
+          "items": {
+            "enum": [
+              "RETRIEVAL_MISS",
+              "WRONG_ANSWER",
+              "UNSUPPORTED_CLAIM",
+              "UNCITED_CLAIM",
+              "BAD_CITATION",
+              "ANSWERED_UNANSWERABLE",
+              "FALSE_REFUSAL",
+              "PASS"
+            ],
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Failure Types",
+          "type": "array"
+        },
+        "item_id": {
+          "description": "Evaluated benchmark item ID",
+          "minLength": 1,
+          "title": "Item Id",
+          "type": "string"
+        },
+        "metrics": {
+          "$ref": "#/$defs/ItemMetrics",
+          "description": "Computed metric values"
+        },
+        "origin": {
+          "description": "Origin class of evaluated output",
+          "enum": [
+            "recorded_system",
+            "synthetic_fixture"
+          ],
+          "title": "Origin",
+          "type": "string"
+        }
+      },
+      "required": [
+        "item_id",
+        "origin",
+        "metrics",
+        "failure_types"
+      ],
+      "title": "RunItemResult",
+      "type": "object"
+    },
+    "RunSummary": {
+      "additionalProperties": false,
+      "description": "Overall aggregate metrics and failure distribution.",
+      "properties": {
+        "combined": {
+          "$ref": "#/$defs/AggregateMetrics",
+          "description": "Metrics across all evaluated outputs"
+        },
+        "failure_distribution": {
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "description": "Counts of each failure type",
+          "title": "Failure Distribution",
+          "type": "object"
+        },
+        "recorded_system": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AggregateMetrics"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Metrics computed exclusively on recorded_system outputs"
+        },
+        "synthetic_fixture": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AggregateMetrics"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Metrics computed exclusively on synthetic_fixture outputs"
+        }
+      },
+      "required": [
+        "combined"
+      ],
+      "title": "RunSummary",
+      "type": "object"
+    },
+    "RunThresholds": {
+      "additionalProperties": false,
+      "description": "Calibrated or configured NLI decision thresholds.",
+      "properties": {
+        "contradict": {
+          "description": "Contradiction probability threshold",
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Contradict",
+          "type": "number"
+        },
+        "entail": {
+          "description": "Entailment probability threshold",
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Entail",
+          "type": "number"
+        }
+      },
+      "required": [
+        "entail",
+        "contradict"
+      ],
+      "title": "RunThresholds",
+      "type": "object"
+    },
+    "SystemMetadata": {
+      "additionalProperties": false,
+      "description": "Identification and provenance metadata for the evaluated system.",
+      "properties": {
+        "name": {
+          "description": "System or pipeline name",
+          "minLength": 1,
+          "title": "Name",
+          "type": "string"
+        },
+        "provenance": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SystemProvenance"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Execution provenance (mandatory if outputs contain recorded_system items)"
+        },
+        "version": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "System version or commit hash",
+          "title": "Version"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "title": "SystemMetadata",
+      "type": "object"
+    },
+    "SystemProvenance": {
+      "additionalProperties": false,
+      "description": "Detailed pipeline execution provenance for recorded system outputs.",
+      "properties": {
+        "model_name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Generator model identifier",
+          "title": "Model Name"
+        },
+        "parameters": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Pipeline generation parameters",
+          "title": "Parameters"
+        },
+        "pipeline_description": {
+          "description": "Description of the RAG pipeline",
+          "minLength": 1,
+          "title": "Pipeline Description",
+          "type": "string"
+        },
+        "retriever_name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Retriever / search engine identifier",
+          "title": "Retriever Name"
+        },
+        "run_timestamp": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "ISO 8601 execution timestamp",
+          "title": "Run Timestamp"
+        }
+      },
+      "required": [
+        "pipeline_description"
+      ],
+      "title": "SystemProvenance",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "Complete evaluation run document contract (trace.run/1.0).",
+  "properties": {
+    "config": {
+      "$ref": "#/$defs/RunConfig",
+      "description": "Complete evaluation configuration"
+    },
+    "dataset": {
+      "$ref": "#/$defs/RunDatasetReference",
+      "description": "Evaluated dataset reference"
+    },
+    "environment": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/EnvironmentMetadata"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Execution environment details (never hashed)"
+    },
+    "input_origin_summary": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/InputOriginSummary"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Derived summary of input origins (never hashed)"
+    },
+    "items": {
+      "description": "Item-level evaluation results",
+      "items": {
+        "$ref": "#/$defs/RunItemResult"
+      },
+      "title": "Items",
+      "type": "array"
+    },
+    "methodology_version": {
+      "default": "1.0.0",
+      "description": "Normative methodology version",
+      "title": "Methodology Version",
+      "type": "string"
+    },
+    "result_hash": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Deterministic SHA-256 hash of canonical run core",
+      "title": "Result Hash"
+    },
+    "run_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "First 16 hexadecimal characters of result_hash",
+      "title": "Run Id"
+    },
+    "runtime_status": {
+      "anyOf": [
+        {
+          "enum": [
+            "live",
+            "startup_recomputed",
+            "loaded",
+            "replayed_judge"
+          ],
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Ephemeral runtime evaluation status (never hashed)",
+      "title": "Runtime Status"
+    },
+    "schema_version": {
+      "const": "trace.run/1.0",
+      "default": "trace.run/1.0",
+      "description": "Schema version identifier",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "submission_content_sha256": {
+      "description": "Content hash of evaluated submission",
+      "maxLength": 64,
+      "minLength": 64,
+      "title": "Submission Content Sha256",
+      "type": "string"
+    },
+    "summary": {
+      "$ref": "#/$defs/RunSummary",
+      "description": "Aggregated run results"
+    },
+    "system": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/SystemMetadata"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Evaluated system metadata and provenance (never hashed)"
+    }
+  },
+  "required": [
+    "dataset",
+    "submission_content_sha256",
+    "config",
+    "summary",
+    "items"
+  ],
+  "title": "RunResult",
+  "type": "object"
+}

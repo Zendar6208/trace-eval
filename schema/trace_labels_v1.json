@@ -1,0 +1,232 @@
+{
+  "$defs": {
+    "CitationUnitLabel": {
+      "additionalProperties": false,
+      "description": "Human annotation for a single (sentence, passage_id) citation unit.",
+      "properties": {
+        "notes": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Optional annotation note",
+          "title": "Notes"
+        },
+        "passage_id": {
+          "description": "Cited passage identifier",
+          "minLength": 1,
+          "title": "Passage Id",
+          "type": "string"
+        },
+        "supports": {
+          "description": "Whether the cited passage text genuinely supports the sentence claim",
+          "title": "Supports",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "passage_id",
+        "supports"
+      ],
+      "title": "CitationUnitLabel",
+      "type": "object"
+    },
+    "ItemLabels": {
+      "additionalProperties": false,
+      "description": "Human annotations for a specific benchmark item output.",
+      "properties": {
+        "annotator_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Identifier of the human annotator",
+          "title": "Annotator Id"
+        },
+        "correctness_verdict": {
+          "anyOf": [
+            {
+              "enum": [
+                "correct",
+                "partial",
+                "incorrect"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Human gold correctness verdict against reference facts and question intent",
+          "title": "Correctness Verdict"
+        },
+        "item_id": {
+          "description": "Referenced benchmark item identifier",
+          "minLength": 1,
+          "title": "Item Id",
+          "type": "string"
+        },
+        "notes": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Optional item-level notes",
+          "title": "Notes"
+        },
+        "sentences": {
+          "description": "Annotated sentences for grounding and citation verification",
+          "items": {
+            "$ref": "#/$defs/SentenceLabel"
+          },
+          "title": "Sentences",
+          "type": "array"
+        }
+      },
+      "required": [
+        "item_id"
+      ],
+      "title": "ItemLabels",
+      "type": "object"
+    },
+    "SentenceLabel": {
+      "additionalProperties": false,
+      "description": "Ground truth annotation for an individual sentence in an evaluated answer.",
+      "properties": {
+        "citation_labels": {
+          "description": "Evaluated citation units attached to this sentence",
+          "items": {
+            "$ref": "#/$defs/CitationUnitLabel"
+          },
+          "title": "Citation Labels",
+          "type": "array"
+        },
+        "grounding_label": {
+          "anyOf": [
+            {
+              "enum": [
+                "supported",
+                "unsupported",
+                "contradicted",
+                "not_assessable"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Grounding verdict relative to all retrieved passages",
+          "title": "Grounding Label"
+        },
+        "is_claim": {
+          "default": true,
+          "description": "Whether this sentence constitutes a factual claim (vs. pleasantry or refusal)",
+          "title": "Is Claim",
+          "type": "boolean"
+        },
+        "notes": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Optional sentence-level annotator notes",
+          "title": "Notes"
+        },
+        "sentence_index": {
+          "description": "0-based sentence index in the segmented answer",
+          "minimum": 0,
+          "title": "Sentence Index",
+          "type": "integer"
+        },
+        "sentence_text": {
+          "description": "Verbatim sentence text used to verify segmentation alignment",
+          "minLength": 1,
+          "title": "Sentence Text",
+          "type": "string"
+        }
+      },
+      "required": [
+        "sentence_index",
+        "sentence_text"
+      ],
+      "title": "SentenceLabel",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "Labels document data contract (trace.labels/1.0).",
+  "properties": {
+    "annotator_notes": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "General notes by annotators (excluded from content hash)",
+      "title": "Annotator Notes"
+    },
+    "dataset_id": {
+      "description": "Target dataset identifier",
+      "minLength": 1,
+      "title": "Dataset Id",
+      "type": "string"
+    },
+    "items": {
+      "description": "Annotated items for human-evaluator agreement assessment",
+      "items": {
+        "$ref": "#/$defs/ItemLabels"
+      },
+      "minItems": 1,
+      "title": "Items",
+      "type": "array"
+    },
+    "schema_version": {
+      "const": "trace.labels/1.0",
+      "default": "trace.labels/1.0",
+      "description": "Schema version identifier",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "submission_content_sha256": {
+      "description": "Content SHA-256 of the exact submission being annotated",
+      "maxLength": 64,
+      "minLength": 64,
+      "title": "Submission Content Sha256",
+      "type": "string"
+    }
+  },
+  "required": [
+    "dataset_id",
+    "submission_content_sha256",
+    "items"
+  ],
+  "title": "LabelsDocument",
+  "type": "object"
+}

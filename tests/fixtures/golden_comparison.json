@@ -1,0 +1,72 @@
+{
+  "schema_version": "trace.comparison/1.0",
+  "comparison_id": "comp-baseline-vs-candidate",
+  "baseline_run": {
+    "run_id": "0b21c46117c19d72",
+    "result_hash": "0b21c46117c19d72c519eb21626e214292bd599f7eb576e8385f066bcf7a0a6b",
+    "system_name": "ProductionRAG"
+  },
+  "candidate_run": {
+    "run_id": "0b21c46117c19d72",
+    "result_hash": "0b21c46117c19d72c519eb21626e214292bd599f7eb576e8385f066bcf7a0a6b",
+    "system_name": "CandidateRAG"
+  },
+  "dataset": {
+    "id": "sample-finance-benchmark",
+    "content_sha256": "449f4f34c6007c8c4df8b60bef55f991f9336b85dd53c0db749a72d82d9914e6"
+  },
+  "metrics_diff": {
+    "token_f1": {
+      "metric_name": "token_f1",
+      "baseline_value": 0.475,
+      "candidate_value": 0.55,
+      "absolute_delta": 0.075,
+      "relative_delta": 0.157895,
+      "ci_lower": 0.01,
+      "ci_upper": 0.14,
+      "p_value": 0.035,
+      "significant": true
+    }
+  },
+  "regression_detected": false,
+  "regression_reasons": [],
+  "summary": {
+    "total_items": 2,
+    "regressed_items_count": 0,
+    "improved_items_count": 1,
+    "unchanged_items_count": 1
+  },
+  "item_comparisons": [
+    {
+      "item_id": "item-001",
+      "baseline_verdict": "correct",
+      "candidate_verdict": "correct",
+      "baseline_failure_types": [
+        "PASS"
+      ],
+      "candidate_failure_types": [
+        "PASS"
+      ],
+      "status": "unchanged",
+      "notes": null
+    },
+    {
+      "item_id": "item-002",
+      "baseline_verdict": "incorrect",
+      "candidate_verdict": "partial",
+      "baseline_failure_types": [
+        "BAD_CITATION",
+        "UNSUPPORTED_CLAIM",
+        "WRONG_ANSWER"
+      ],
+      "candidate_failure_types": [
+        "BAD_CITATION"
+      ],
+      "status": "improved",
+      "notes": "Answer improved to partial"
+    }
+  ],
+  "metadata": {
+    "comparator": "trace-eval-v0.1.0"
+  }
+}

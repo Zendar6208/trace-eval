@@ -1,0 +1,397 @@
+{
+  "$defs": {
+    "ComparisonSummary": {
+      "additionalProperties": false,
+      "description": "High-level summary of paired run comparison.",
+      "properties": {
+        "improved_items_count": {
+          "default": 0,
+          "description": "Items that improved",
+          "minimum": 0,
+          "title": "Improved Items Count",
+          "type": "integer"
+        },
+        "regressed_items_count": {
+          "default": 0,
+          "description": "Items that degraded",
+          "minimum": 0,
+          "title": "Regressed Items Count",
+          "type": "integer"
+        },
+        "total_items": {
+          "description": "Total items compared across both runs",
+          "minimum": 0,
+          "title": "Total Items",
+          "type": "integer"
+        },
+        "unchanged_items_count": {
+          "default": 0,
+          "description": "Items with identical verdict",
+          "minimum": 0,
+          "title": "Unchanged Items Count",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "total_items"
+      ],
+      "title": "ComparisonSummary",
+      "type": "object"
+    },
+    "ItemComparison": {
+      "additionalProperties": false,
+      "description": "Item-level paired evaluation difference.",
+      "properties": {
+        "baseline_failure_types": {
+          "description": "Failure types assigned in baseline",
+          "items": {
+            "type": "string"
+          },
+          "title": "Baseline Failure Types",
+          "type": "array"
+        },
+        "baseline_verdict": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Correctness verdict in baseline",
+          "title": "Baseline Verdict"
+        },
+        "candidate_failure_types": {
+          "description": "Failure types assigned in candidate",
+          "items": {
+            "type": "string"
+          },
+          "title": "Candidate Failure Types",
+          "type": "array"
+        },
+        "candidate_verdict": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Correctness verdict in candidate",
+          "title": "Candidate Verdict"
+        },
+        "item_id": {
+          "description": "Benchmark item identifier",
+          "minLength": 1,
+          "title": "Item Id",
+          "type": "string"
+        },
+        "notes": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Optional diagnostic notes",
+          "title": "Notes"
+        },
+        "status": {
+          "description": "Outcome classification for this item",
+          "enum": [
+            "improved",
+            "regressed",
+            "unchanged"
+          ],
+          "title": "Status",
+          "type": "string"
+        }
+      },
+      "required": [
+        "item_id",
+        "status"
+      ],
+      "title": "ItemComparison",
+      "type": "object"
+    },
+    "MetricDelta": {
+      "additionalProperties": false,
+      "description": "Statistical difference and confidence interval for a single evaluation metric.",
+      "properties": {
+        "absolute_delta": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Candidate value minus baseline value",
+          "title": "Absolute Delta"
+        },
+        "baseline_value": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Metric value in baseline run",
+          "title": "Baseline Value"
+        },
+        "candidate_value": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Metric value in candidate run",
+          "title": "Candidate Value"
+        },
+        "ci_lower": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Lower bound of cluster bootstrap confidence interval",
+          "title": "Ci Lower"
+        },
+        "ci_upper": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Upper bound of cluster bootstrap confidence interval",
+          "title": "Ci Upper"
+        },
+        "metric_name": {
+          "description": "Standard metric identifier",
+          "minLength": 1,
+          "title": "Metric Name",
+          "type": "string"
+        },
+        "p_value": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Statistical significance p-value",
+          "title": "P Value"
+        },
+        "relative_delta": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Relative percentage change if baseline > 0",
+          "title": "Relative Delta"
+        },
+        "significant": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "True if delta is statistically significant at configured alpha",
+          "title": "Significant"
+        }
+      },
+      "required": [
+        "metric_name"
+      ],
+      "title": "MetricDelta",
+      "type": "object"
+    },
+    "RunDatasetReference": {
+      "additionalProperties": false,
+      "description": "Reference to the dataset evaluated.",
+      "properties": {
+        "content_sha256": {
+          "description": "Canonical content hash of the dataset",
+          "maxLength": 64,
+          "minLength": 64,
+          "title": "Content Sha256",
+          "type": "string"
+        },
+        "id": {
+          "description": "Dataset identifier",
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "content_sha256"
+      ],
+      "title": "RunDatasetReference",
+      "type": "object"
+    },
+    "RunReference": {
+      "additionalProperties": false,
+      "description": "Reference to an evaluated run in a paired comparison.",
+      "properties": {
+        "result_hash": {
+          "description": "64-character SHA-256 result hash",
+          "maxLength": 64,
+          "minLength": 64,
+          "title": "Result Hash",
+          "type": "string"
+        },
+        "run_id": {
+          "description": "16-character run identifier",
+          "minLength": 1,
+          "title": "Run Id",
+          "type": "string"
+        },
+        "system_name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "System or pipeline name",
+          "title": "System Name"
+        }
+      },
+      "required": [
+        "run_id",
+        "result_hash"
+      ],
+      "title": "RunReference",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "Paired run comparison document contract (trace.comparison/1.0).",
+  "properties": {
+    "baseline_run": {
+      "$ref": "#/$defs/RunReference",
+      "description": "Baseline reference run"
+    },
+    "candidate_run": {
+      "$ref": "#/$defs/RunReference",
+      "description": "Candidate evaluation run"
+    },
+    "comparison_id": {
+      "description": "Unique comparison identifier",
+      "minLength": 1,
+      "title": "Comparison Id",
+      "type": "string"
+    },
+    "dataset": {
+      "$ref": "#/$defs/RunDatasetReference",
+      "description": "Common benchmark dataset"
+    },
+    "item_comparisons": {
+      "description": "Item-level paired comparisons",
+      "items": {
+        "$ref": "#/$defs/ItemComparison"
+      },
+      "title": "Item Comparisons",
+      "type": "array"
+    },
+    "metadata": {
+      "anyOf": [
+        {
+          "additionalProperties": true,
+          "type": "object"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Comparison execution metadata",
+      "title": "Metadata"
+    },
+    "metrics_diff": {
+      "additionalProperties": {
+        "$ref": "#/$defs/MetricDelta"
+      },
+      "description": "Metric deltas and bootstrap confidence intervals",
+      "title": "Metrics Diff",
+      "type": "object"
+    },
+    "regression_detected": {
+      "default": false,
+      "description": "True if any regression gate criteria were breached",
+      "title": "Regression Detected",
+      "type": "boolean"
+    },
+    "regression_reasons": {
+      "description": "Explanations for flagged regressions",
+      "items": {
+        "type": "string"
+      },
+      "title": "Regression Reasons",
+      "type": "array"
+    },
+    "schema_version": {
+      "const": "trace.comparison/1.0",
+      "default": "trace.comparison/1.0",
+      "description": "Schema version identifier",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "summary": {
+      "$ref": "#/$defs/ComparisonSummary",
+      "description": "High-level item outcome counts"
+    }
+  },
+  "required": [
+    "comparison_id",
+    "baseline_run",
+    "candidate_run",
+    "dataset",
+    "summary"
+  ],
+  "title": "ComparisonResult",
+  "type": "object"
+}

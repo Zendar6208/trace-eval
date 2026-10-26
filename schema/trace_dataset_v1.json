@@ -1,0 +1,253 @@
+{
+  "$defs": {
+    "DatasetItem": {
+      "additionalProperties": false,
+      "description": "A single evaluation benchmark item.",
+      "properties": {
+        "gold_passage_ids": {
+          "description": "IDs of corpus passages that ground the correct answer",
+          "items": {
+            "type": "string"
+          },
+          "title": "Gold Passage Ids",
+          "type": "array"
+        },
+        "group_id": {
+          "description": "Case grouping identifier shared by item variants for cluster bootstrapping",
+          "title": "Group Id",
+          "type": "string"
+        },
+        "id": {
+          "description": "Unique benchmark item identifier",
+          "title": "Id",
+          "type": "string"
+        },
+        "metadata": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Optional domain, category, or difficulty tags",
+          "title": "Metadata"
+        },
+        "question": {
+          "description": "Query or prompt posed to the RAG system",
+          "minLength": 1,
+          "title": "Question",
+          "type": "string"
+        },
+        "reference_answers": {
+          "description": "One or more gold reference answers against which correctness is measured",
+          "items": {
+            "type": "string"
+          },
+          "title": "Reference Answers",
+          "type": "array"
+        },
+        "required_facts": {
+          "description": "Atomic required facts that must be recalled",
+          "items": {
+            "$ref": "#/$defs/RequiredFact"
+          },
+          "title": "Required Facts",
+          "type": "array"
+        },
+        "split": {
+          "description": "Data partition: dev (for calibration) or test (for frozen evaluation)",
+          "enum": [
+            "dev",
+            "test"
+          ],
+          "title": "Split",
+          "type": "string"
+        },
+        "unanswerable": {
+          "default": false,
+          "description": "True if the question cannot be answered from the corpus and requires a refusal",
+          "title": "Unanswerable",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "id",
+        "group_id",
+        "split",
+        "question"
+      ],
+      "title": "DatasetItem",
+      "type": "object"
+    },
+    "Passage": {
+      "additionalProperties": false,
+      "description": "A corpus passage available for retrieval and citation support.",
+      "properties": {
+        "id": {
+          "description": "Unique passage identifier, matching [A-Za-z0-9_.:-]+",
+          "title": "Id",
+          "type": "string"
+        },
+        "metadata": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Arbitrary passage metadata",
+          "title": "Metadata"
+        },
+        "text": {
+          "description": "Passage body text",
+          "minLength": 1,
+          "title": "Text",
+          "type": "string"
+        },
+        "title": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Optional title or section header",
+          "title": "Title"
+        }
+      },
+      "required": [
+        "id",
+        "text"
+      ],
+      "title": "Passage",
+      "type": "object"
+    },
+    "RequiredFact": {
+      "additionalProperties": false,
+      "description": "A atomic fact required in a correct response, matched by normalized text, aliases, or NLI.",
+      "properties": {
+        "aliases": {
+          "description": "Alternative surface forms or synonyms of the fact",
+          "items": {
+            "type": "string"
+          },
+          "title": "Aliases",
+          "type": "array"
+        },
+        "fact_id": {
+          "description": "Unique identifier for the fact within the item",
+          "title": "Fact Id",
+          "type": "string"
+        },
+        "is_numeric": {
+          "default": false,
+          "description": "Whether this fact contains numeric/date values subject to the numeric guard",
+          "title": "Is Numeric",
+          "type": "boolean"
+        },
+        "text": {
+          "description": "Primary surface form of the required fact",
+          "minLength": 1,
+          "title": "Text",
+          "type": "string"
+        }
+      },
+      "required": [
+        "fact_id",
+        "text"
+      ],
+      "title": "RequiredFact",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "Benchmark dataset contract (trace.dataset/1.0).",
+  "properties": {
+    "corpus": {
+      "description": "Corpus of documents/passages for retrieval and citation checking",
+      "items": {
+        "$ref": "#/$defs/Passage"
+      },
+      "title": "Corpus",
+      "type": "array"
+    },
+    "dataset_id": {
+      "description": "Unique identifier of the dataset",
+      "minLength": 1,
+      "title": "Dataset Id",
+      "type": "string"
+    },
+    "description": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Dataset description and scope",
+      "title": "Description"
+    },
+    "items": {
+      "description": "List of benchmark query items",
+      "items": {
+        "$ref": "#/$defs/DatasetItem"
+      },
+      "minItems": 1,
+      "title": "Items",
+      "type": "array"
+    },
+    "language": {
+      "default": "en",
+      "description": "Language code (e.g. 'en')",
+      "title": "Language",
+      "type": "string"
+    },
+    "license": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Dataset license identifier",
+      "title": "License"
+    },
+    "name": {
+      "description": "Human-readable name of the dataset",
+      "minLength": 1,
+      "title": "Name",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "trace.dataset/1.0",
+      "default": "trace.dataset/1.0",
+      "description": "Schema version identifier",
+      "title": "Schema Version",
+      "type": "string"
+    }
+  },
+  "required": [
+    "dataset_id",
+    "name",
+    "items"
+  ],
+  "title": "Dataset",
+  "type": "object"
+}

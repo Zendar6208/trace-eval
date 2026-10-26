@@ -1,0 +1,56 @@
+{
+  "schema_version": "trace.submission/1.0",
+  "dataset_id": "sample-finance-benchmark",
+  "system": {
+    "name": "ProductionRAG",
+    "version": "v1.2.0",
+    "provenance": {
+      "pipeline_description": "BM25 + Dense Retriever with Llama-3-70B",
+      "model_name": "llama-3-70b-instruct",
+      "retriever_name": "bge-large-en-v1.5",
+      "run_timestamp": "2026-10-26T10:00:00Z",
+      "parameters": {
+        "temperature": 0.0,
+        "top_k": 2
+      }
+    }
+  },
+  "outputs": [
+    {
+      "item_id": "item-001",
+      "origin": "recorded_system",
+      "fixture_note": null,
+      "answer": "Refunds are processed within 30 business days.[p01]",
+      "retrieved": [
+        {
+          "id": "p01",
+          "text": null,
+          "score": 0.95,
+          "metadata": null
+        },
+        {
+          "id": "p02",
+          "text": null,
+          "score": 0.45,
+          "metadata": null
+        }
+      ],
+      "metadata": null
+    },
+    {
+      "item_id": "item-002",
+      "origin": "synthetic_fixture",
+      "fixture_note": "Synthetic bad citation to phantom ID p99",
+      "answer": "You can cancel anytime.[p99]",
+      "retrieved": [
+        {
+          "id": "p02",
+          "text": null,
+          "score": 0.88,
+          "metadata": null
+        }
+      ],
+      "metadata": null
+    }
+  ]
+}

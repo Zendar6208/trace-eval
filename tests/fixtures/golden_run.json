@@ -1,0 +1,245 @@
+{
+  "schema_version": "trace.run/1.0",
+  "methodology_version": "1.0.0",
+  "dataset": {
+    "id": "sample-finance-benchmark",
+    "content_sha256": "449f4f34c6007c8c4df8b60bef55f991f9336b85dd53c0db749a72d82d9914e6"
+  },
+  "submission_content_sha256": "89a8cb70bc5626b7c62704480f14d4b492e0581fc08d05d2015f7ae898ea2fe4",
+  "config": {
+    "thresholds": {
+      "entail": 0.8,
+      "contradict": 0.7
+    },
+    "citation_style": "id",
+    "phantom_mode": "bracket",
+    "require_citations": true,
+    "prefilter_top_m": null,
+    "window_sentences": 3,
+    "max_length": 512,
+    "batch_size": 16,
+    "truncation_policy": "longest_first",
+    "id2label": {
+      "0": "contradiction",
+      "1": "neutral",
+      "2": "entailment"
+    },
+    "nli_model": {
+      "model_name": "roberta-large-snli_mnli",
+      "revision": "v1.0",
+      "weights_sha256": "abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890"
+    },
+    "bootstrap": {
+      "resamples": 10000,
+      "seed": 42
+    }
+  },
+  "summary": {
+    "recorded_system": {
+      "count": 1,
+      "mean_token_f1": 0.85,
+      "mean_fact_recall": 1.0,
+      "accuracy": 1.0,
+      "mean_citation_precision": 1.0,
+      "mean_citation_recall": 1.0,
+      "mean_phantom_rate": 0.0,
+      "mean_unsupported_claim_rate": 0.0
+    },
+    "synthetic_fixture": {
+      "count": 1,
+      "mean_token_f1": 0.1,
+      "mean_fact_recall": 0.0,
+      "accuracy": 0.0,
+      "mean_citation_precision": 0.0,
+      "mean_citation_recall": 0.0,
+      "mean_phantom_rate": 1.0,
+      "mean_unsupported_claim_rate": 1.0
+    },
+    "combined": {
+      "count": 2,
+      "mean_token_f1": 0.475,
+      "mean_fact_recall": 0.5,
+      "accuracy": 0.5,
+      "mean_citation_precision": 0.5,
+      "mean_citation_recall": 0.5,
+      "mean_phantom_rate": 0.5,
+      "mean_unsupported_claim_rate": 0.5
+    },
+    "failure_distribution": {
+      "PASS": 1,
+      "BAD_CITATION": 1,
+      "UNSUPPORTED_CLAIM": 1
+    }
+  },
+  "items": [
+    {
+      "item_id": "item-001",
+      "origin": "recorded_system",
+      "metrics": {
+        "retrieval": {
+          "hit_at_k": {
+            "1": 1.0,
+            "2": 1.0
+          },
+          "recall_at_k": {
+            "1": 1.0,
+            "2": 1.0
+          },
+          "precision_at_k": {
+            "1": 1.0,
+            "2": 0.5
+          },
+          "mrr": 1.0,
+          "ndcg_at_k": {
+            "1": 1.0,
+            "2": 1.0
+          }
+        },
+        "correctness": {
+          "fact_recall": 1.0,
+          "token_f1": 0.85,
+          "contradicts_reference": false,
+          "verdict": "correct"
+        },
+        "citation": {
+          "citation_precision": 1.0,
+          "citation_recall": 1.0,
+          "phantom_rate": 0.0,
+          "uncited_claim_rate": 0.0,
+          "cites_gold": true
+        },
+        "grounding": {
+          "unsupported_claim_rate": 0.0,
+          "is_unsupported_answer": false
+        }
+      },
+      "failure_types": [
+        "PASS"
+      ],
+      "evidence": {
+        "claims": [
+          {
+            "sentence_index": 0,
+            "sentence_text": "Refunds are processed within 30 business days.",
+            "is_assessable": true,
+            "grounding_label": "supported",
+            "best_entail_prob": 0.98,
+            "best_contradict_prob": 0.01,
+            "numeric_guard_triggered": false
+          }
+        ],
+        "citations": [
+          {
+            "sentence_index": 0,
+            "passage_id": "p01",
+            "validity": "ok",
+            "supports": true,
+            "entail_prob": 0.98,
+            "best_window": "Refunds are processed within 30 business days of initial request."
+          }
+        ]
+      }
+    },
+    {
+      "item_id": "item-002",
+      "origin": "synthetic_fixture",
+      "metrics": {
+        "retrieval": {
+          "hit_at_k": {
+            "1": 0.0
+          },
+          "recall_at_k": {
+            "1": 0.0
+          },
+          "precision_at_k": {
+            "1": 0.0
+          },
+          "mrr": 0.0,
+          "ndcg_at_k": {
+            "1": 0.0
+          }
+        },
+        "correctness": {
+          "fact_recall": 0.0,
+          "token_f1": 0.1,
+          "contradicts_reference": true,
+          "verdict": "incorrect"
+        },
+        "citation": {
+          "citation_precision": 0.0,
+          "citation_recall": 0.0,
+          "phantom_rate": 1.0,
+          "uncited_claim_rate": 0.0,
+          "cites_gold": false
+        },
+        "grounding": {
+          "unsupported_claim_rate": 1.0,
+          "is_unsupported_answer": true
+        }
+      },
+      "failure_types": [
+        "BAD_CITATION",
+        "UNSUPPORTED_CLAIM",
+        "WRONG_ANSWER"
+      ],
+      "evidence": {
+        "claims": [
+          {
+            "sentence_index": 0,
+            "sentence_text": "You can cancel anytime.",
+            "is_assessable": true,
+            "grounding_label": "contradicted",
+            "best_entail_prob": 0.02,
+            "best_contradict_prob": 0.94,
+            "numeric_guard_triggered": false
+          }
+        ],
+        "citations": [
+          {
+            "sentence_index": 0,
+            "passage_id": "p99",
+            "validity": "unknown_id",
+            "supports": false,
+            "entail_prob": null,
+            "best_window": null
+          }
+        ]
+      }
+    }
+  ],
+  "run_id": "0b21c46117c19d72",
+  "result_hash": "0b21c46117c19d72c519eb21626e214292bd599f7eb576e8385f066bcf7a0a6b",
+  "runtime_status": "loaded",
+  "environment": {
+    "timestamp": "2026-10-26T10:15:00Z",
+    "duration_seconds": 12.345,
+    "hostname": "eval-worker-01",
+    "os": "Linux-5.15.0",
+    "python_version": "3.11.9",
+    "git_sha": "0123456789abcdef0123456789abcdef01234567",
+    "library_versions": {
+      "torch": "2.14.0",
+      "transformers": "4.51.3"
+    },
+    "thread_count": 4
+  },
+  "system": {
+    "name": "ProductionRAG",
+    "version": "v1.2.0",
+    "provenance": {
+      "pipeline_description": "BM25 + Dense Retriever with Llama-3-70B",
+      "model_name": "llama-3-70b-instruct",
+      "retriever_name": "bge-large-en-v1.5",
+      "run_timestamp": "2026-10-26T10:00:00Z",
+      "parameters": {
+        "temperature": 0.0,
+        "top_k": 2
+      }
+    }
+  },
+  "input_origin_summary": {
+    "recorded_system_count": 1,
+    "synthetic_fixture_count": 1,
+    "total_count": 2
+  }
+}

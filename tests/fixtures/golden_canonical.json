@@ -1,0 +1,40 @@
+[
+  {
+    "name": "dict_key_sorting",
+    "description": "Ensure dictionary keys are sorted by Unicode code point with no whitespace",
+    "input": {
+      "z": 1,
+      "b": 2,
+      "a": 3
+    },
+    "expected_canonical_str": "{\"a\":3,\"b\":2,\"z\":1}",
+    "expected_canonical_bytes_hex": "7b2261223a332c2262223a322c227a223a317d",
+    "expected_sha256": "fcf493c81aefa78756adbd69973a6c89ea93b7deb5249ba8842056e6129e6e81"
+  },
+  {
+    "name": "unicode_nfc_normalization",
+    "description": "NFD combining characters are normalized to NFC in keys and string values",
+    "input": {
+      "caf\u00e9": "re\u0301sume\u0301"
+    },
+    "expected_canonical_str": "{\"caf\u00e9\":\"r\u00e9sum\u00e9\"}",
+    "expected_canonical_bytes_hex": "7b22636166c3a9223a2272c3a973756dc3a9227d",
+    "expected_sha256": "0603fbb4a9cb335c0605ac978b179931265a90026fb1102ac97d4106daa29c95"
+  },
+  {
+    "name": "float_rounding_and_types",
+    "description": "Six-decimal float rounding, negative zero normalization, and int vs float distinction",
+    "input": {
+      "bool_val": false,
+      "float_int": 1.0,
+      "float_round_down": 1.1234564,
+      "float_round_up": 1.1234567,
+      "int_val": 1,
+      "negative_zero": -0.0,
+      "null_val": null
+    },
+    "expected_canonical_str": "{\"bool_val\":false,\"float_int\":1.0,\"float_round_down\":1.123456,\"float_round_up\":1.123457,\"int_val\":1,\"negative_zero\":0.0,\"null_val\":null}",
+    "expected_canonical_bytes_hex": "7b22626f6f6c5f76616c223a66616c73652c22666c6f61745f696e74223a312e302c22666c6f61745f726f756e645f646f776e223a312e3132333435362c22666c6f61745f726f756e645f7570223a312e3132333435372c22696e745f76616c223a312c226e656761746976655f7a65726f223a302e302c226e756c6c5f76616c223a6e756c6c7d",
+    "expected_sha256": "0fc6f1b82b5234c5a1d677aaec9073eb6f33d6ebd86e566bb4598895baa9fed8"
+  }
+]

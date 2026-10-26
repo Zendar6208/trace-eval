@@ -1,0 +1,278 @@
+{
+  "$defs": {
+    "RetrievedPassage": {
+      "additionalProperties": false,
+      "description": "A passage retrieved by the RAG pipeline in rank order.",
+      "properties": {
+        "id": {
+          "description": "Corpus passage identifier",
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "metadata": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Pipeline-specific metadata",
+          "title": "Metadata"
+        },
+        "score": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Retrieval score or similarity metric",
+          "title": "Score"
+        },
+        "text": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Optional passage text snippet if recorded",
+          "title": "Text"
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "title": "RetrievedPassage",
+      "type": "object"
+    },
+    "SubmissionOutput": {
+      "additionalProperties": false,
+      "description": "The generated response and retrieval result for a single benchmark item.",
+      "properties": {
+        "answer": {
+          "description": "Generated answer text (may include citation markers)",
+          "title": "Answer",
+          "type": "string"
+        },
+        "fixture_note": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Mandatory explanation of the failure mode exhibited by a synthetic fixture",
+          "title": "Fixture Note"
+        },
+        "item_id": {
+          "description": "Referenced benchmark item ID",
+          "minLength": 1,
+          "title": "Item Id",
+          "type": "string"
+        },
+        "metadata": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Item-level output metadata",
+          "title": "Metadata"
+        },
+        "origin": {
+          "description": "Provenance class: 'recorded_system' or 'synthetic_fixture'",
+          "enum": [
+            "recorded_system",
+            "synthetic_fixture"
+          ],
+          "title": "Origin",
+          "type": "string"
+        },
+        "retrieved": {
+          "description": "Ordered list of passages retrieved for this query",
+          "items": {
+            "$ref": "#/$defs/RetrievedPassage"
+          },
+          "title": "Retrieved",
+          "type": "array"
+        }
+      },
+      "required": [
+        "item_id",
+        "origin",
+        "answer"
+      ],
+      "title": "SubmissionOutput",
+      "type": "object"
+    },
+    "SystemMetadata": {
+      "additionalProperties": false,
+      "description": "Identification and provenance metadata for the evaluated system.",
+      "properties": {
+        "name": {
+          "description": "System or pipeline name",
+          "minLength": 1,
+          "title": "Name",
+          "type": "string"
+        },
+        "provenance": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SystemProvenance"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Execution provenance (mandatory if outputs contain recorded_system items)"
+        },
+        "version": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "System version or commit hash",
+          "title": "Version"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "title": "SystemMetadata",
+      "type": "object"
+    },
+    "SystemProvenance": {
+      "additionalProperties": false,
+      "description": "Detailed pipeline execution provenance for recorded system outputs.",
+      "properties": {
+        "model_name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Generator model identifier",
+          "title": "Model Name"
+        },
+        "parameters": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Pipeline generation parameters",
+          "title": "Parameters"
+        },
+        "pipeline_description": {
+          "description": "Description of the RAG pipeline",
+          "minLength": 1,
+          "title": "Pipeline Description",
+          "type": "string"
+        },
+        "retriever_name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Retriever / search engine identifier",
+          "title": "Retriever Name"
+        },
+        "run_timestamp": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "ISO 8601 execution timestamp",
+          "title": "Run Timestamp"
+        }
+      },
+      "required": [
+        "pipeline_description"
+      ],
+      "title": "SystemProvenance",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "Submission data contract (trace.submission/1.0).",
+  "properties": {
+    "dataset_id": {
+      "description": "Identifier of the target dataset",
+      "minLength": 1,
+      "title": "Dataset Id",
+      "type": "string"
+    },
+    "outputs": {
+      "description": "List of system or synthetic outputs per benchmark item",
+      "items": {
+        "$ref": "#/$defs/SubmissionOutput"
+      },
+      "minItems": 1,
+      "title": "Outputs",
+      "type": "array"
+    },
+    "schema_version": {
+      "const": "trace.submission/1.0",
+      "default": "trace.submission/1.0",
+      "description": "Schema version identifier",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "system": {
+      "$ref": "#/$defs/SystemMetadata",
+      "description": "System metadata and provenance"
+    }
+  },
+  "required": [
+    "dataset_id",
+    "system",
+    "outputs"
+  ],
+  "title": "Submission",
+  "type": "object"
+}

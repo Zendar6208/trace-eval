@@ -1,0 +1,78 @@
+{
+  "schema_version": "trace.dataset/1.0",
+  "dataset_id": "sample-finance-benchmark",
+  "name": "Sample Finance RAG Benchmark",
+  "description": "Normative golden benchmark dataset for verification.",
+  "language": "en",
+  "license": "Apache-2.0",
+  "corpus": [
+    {
+      "id": "p01",
+      "text": "Refunds are processed within 30 business days of initial request.",
+      "title": "Refund Policy",
+      "metadata": {
+        "section": "billing"
+      }
+    },
+    {
+      "id": "p02",
+      "text": "Cancellation requests must be submitted at least 24 hours prior to renewal.",
+      "title": "Cancellation Terms",
+      "metadata": {
+        "section": "subscriptions"
+      }
+    }
+  ],
+  "items": [
+    {
+      "id": "item-001",
+      "group_id": "refund-case",
+      "split": "dev",
+      "question": "How long do refunds take to process?",
+      "unanswerable": false,
+      "gold_passage_ids": [
+        "p01"
+      ],
+      "reference_answers": [
+        "Refunds take up to 30 business days."
+      ],
+      "required_facts": [
+        {
+          "fact_id": "f1",
+          "text": "30 business days",
+          "aliases": [
+            "30 days"
+          ],
+          "is_numeric": true
+        }
+      ],
+      "metadata": {
+        "complexity": "simple"
+      }
+    },
+    {
+      "id": "item-002",
+      "group_id": "cancel-case",
+      "split": "test",
+      "question": "Can I cancel right after renewal?",
+      "unanswerable": false,
+      "gold_passage_ids": [
+        "p02"
+      ],
+      "reference_answers": [
+        "Cancellations must be requested at least 24 hours before renewal."
+      ],
+      "required_facts": [
+        {
+          "fact_id": "f2",
+          "text": "24 hours prior to renewal",
+          "aliases": [],
+          "is_numeric": true
+        }
+      ],
+      "metadata": {
+        "complexity": "simple"
+      }
+    }
+  ]
+}
