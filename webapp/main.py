@@ -2,7 +2,9 @@
 
 Provides endpoints for:
 - Running the bundled sample evaluation
+- Uploading custom evaluation datasets & submissions
 - Retrieving run results with full evidence
+- Downloading sample dataset & submission templates
 - NLI inference status
 """
 
@@ -10,15 +12,17 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel, Field, ValidationError
 
 from trace_eval.evaluator import evaluate_run
 from trace_eval.schema.dataset import Dataset
 from trace_eval.schema.run import RunConfig, RunResult, RunThresholds
 from trace_eval.schema.submission import Submission
+from trace_eval.validation import validate_submission_against_dataset
 
 # ── Paths ──────────────────────────────────────────────────────────────────────
 BASE_DIR = Path(__file__).parent
@@ -53,6 +57,19 @@ def _load_sample_data() -> tuple[Dataset, Submission]:
         with open(SAMPLE_DATA_DIR / "submission.json", encoding="utf-8") as f:
             _submission = Submission.model_validate(json.load(f))
     return _dataset, _submission
+
+
+# ── Request Models ─────────────────────────────────────────────────────────────
+class UploadEvaluationRequest(BaseModel):
+    dataset: dict[str, Any] = Field(..., description="trace.dataset/1.0 JSON")
+    submission: dict[str, Any] = Field(..., description="trace.submission/1.0 JSON")
+    require_citations: bool = Field(default=True, description="Whether citations are evaluated")
+    citation_style: Literal["id", "index"] = Field(
+        default="id", description="Citation marker style"
+    )
+    phantom_mode: Literal["bracket", "known_only"] = Field(
+        default="bracket", description="Phantom citation detection mode"
+    )
 
 
 # ── Helpers ────────────────────────────────────────────────────────────────────
@@ -104,7 +121,6 @@ def _item_summary(item: Any) -> dict:
 
 def _item_evidence(item: Any, dataset: Dataset, submission: Submission) -> dict:
     """Build per-item detailed evidence for inspector."""
-    # Get question from dataset
     ds_item = next((i for i in dataset.items if i.id == item.item_id), None)
     sub_out = next((o for o in submission.outputs if o.item_id == item.item_id), None)
 
@@ -120,7 +136,7 @@ def _item_evidence(item: Any, dataset: Dataset, submission: Submission) -> dict:
                 {
                     "id": r.id,
                     "score": r.score,
-                    "text": retrieved_texts.get(r.id, ""),
+                    "text": retrieved_texts.get(r.id, r.text or ""),
                 }
             )
 
@@ -167,41 +183,8 @@ def _item_evidence(item: Any, dataset: Dataset, submission: Submission) -> dict:
     }
 
 
-# ── Routes ─────────────────────────────────────────────────────────────────────
-
-
-@app.get("/")
-async def root():
-    return {"service": "TRACE AI", "version": "0.1.0", "status": "ready"}
-
-
-@app.get("/health")
-async def health():
-    return {"ok": True}
-
-
-@app.post("/api/evaluate/sample")
-async def run_sample_evaluation():
-    """Run deterministic Tier-0 evaluation on the bundled sample dataset."""
-    global _last_run
-
-    dataset, submission = _load_sample_data()
-    config = RunConfig(
-        thresholds=RunThresholds(entail=0.8, contradict=0.7),
-        require_citations=True,
-        citation_style="id",
-        phantom_mode="bracket",
-    )
-
-    try:
-        run_result = evaluate_run(dataset, submission, config=config)
-        _last_run = run_result
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Evaluation failed: {e}") from e
-
-    # Build response
+def _format_run_response(run_result: RunResult) -> dict:
     items_summary = [_item_summary(item) for item in run_result.items]
-
     combined = run_result.summary.combined
     recorded = run_result.summary.recorded_system
     synthetic = run_result.summary.synthetic_fixture
@@ -222,22 +205,136 @@ async def run_sample_evaluation():
     }
 
 
+# ── Routes ─────────────────────────────────────────────────────────────────────
+
+
+@app.get("/")
+async def root():
+    return {"service": "TRACE AI", "version": "0.1.0", "status": "ready"}
+
+
+@app.get("/health")
+async def health():
+    return {"ok": True}
+
+
+@app.get("/api/sample/dataset")
+async def get_sample_dataset():
+    """Return the raw sample dataset JSON."""
+    with open(SAMPLE_DATA_DIR / "dataset.json", encoding="utf-8") as f:
+        return json.load(f)
+
+
+@app.get("/api/sample/submission")
+async def get_sample_submission():
+    """Return the raw sample submission JSON."""
+    with open(SAMPLE_DATA_DIR / "submission.json", encoding="utf-8") as f:
+        return json.load(f)
+
+
+@app.post("/api/evaluate/sample")
+async def run_sample_evaluation():
+    """Run deterministic Tier-0 evaluation on the bundled sample dataset."""
+    global _last_run, _dataset, _submission
+
+    dataset, submission = _load_sample_data()
+    config = RunConfig(
+        thresholds=RunThresholds(entail=0.8, contradict=0.7),
+        require_citations=True,
+        citation_style="id",
+        phantom_mode="bracket",
+    )
+
+    try:
+        run_result = evaluate_run(dataset, submission, config=config)
+        _last_run = run_result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Evaluation failed: {e}") from e
+
+    return _format_run_response(run_result)
+
+
+@app.post("/api/evaluate/upload")
+async def run_upload_evaluation(req: UploadEvaluationRequest):
+    """Validate and evaluate user-uploaded dataset and submission."""
+    global _last_run, _dataset, _submission
+
+    # 1. Validate Dataset schema
+    try:
+        parsed_dataset = Dataset.model_validate(req.dataset)
+    except ValidationError as e:
+        err_msgs = [
+            f"Dataset error at '{'.'.join(str(x) for x in err['loc'])}': {err['msg']}"
+            for err in e.errors()[:5]
+        ]
+        raise HTTPException(
+            status_code=400, detail=f"Invalid dataset schema: {'; '.join(err_msgs)}"
+        ) from e
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Dataset parsing error: {e}") from e
+
+    # 2. Validate Submission schema
+    try:
+        parsed_submission = Submission.model_validate(req.submission)
+    except ValidationError as e:
+        err_msgs = [
+            f"Submission error at '{'.'.join(str(x) for x in err['loc'])}': {err['msg']}"
+            for err in e.errors()[:5]
+        ]
+        raise HTTPException(
+            status_code=400, detail=f"Invalid submission schema: {'; '.join(err_msgs)}"
+        ) from e
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Submission parsing error: {e}") from e
+
+    # 3. Cross-document consistency validation
+    cross_errors = validate_submission_against_dataset(parsed_dataset, parsed_submission)
+    if cross_errors:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Cross-document validation failed: {'; '.join(cross_errors[:5])}",
+        )
+
+    # 4. Configure evaluation
+    config = RunConfig(
+        thresholds=RunThresholds(entail=0.8, contradict=0.7),
+        require_citations=req.require_citations,
+        citation_style=req.citation_style,
+        phantom_mode=req.phantom_mode,
+    )
+
+    # 5. Run evaluation
+    try:
+        run_result = evaluate_run(parsed_dataset, parsed_submission, config=config)
+        _last_run = run_result
+        _dataset = parsed_dataset
+        _submission = parsed_submission
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Evaluation failed: {e}") from e
+
+    return _format_run_response(run_result)
+
+
+@app.get("/api/evaluate/item/{item_id}")
 @app.get("/api/evaluate/sample/item/{item_id}")
 async def get_item_detail(item_id: str):
     """Get detailed evidence for a single evaluated item."""
-    global _last_run
+    global _last_run, _dataset, _submission
 
     if _last_run is None:
         raise HTTPException(
             status_code=404,
-            detail="No run available. Run /api/evaluate/sample first.",
+            detail="No run available. Run an evaluation first.",
         )
 
-    dataset, submission = _load_sample_data()
+    dataset = _dataset
+    submission = _submission
+    if dataset is None or submission is None:
+        dataset, submission = _load_sample_data()
 
     item = next((i for i in _last_run.items if i.item_id == item_id), None)
     if item is None:
-        raise HTTPException(status_code=404, detail=f"Item '{item_id}' not found in last run")
+        raise HTTPException(status_code=404, detail=f"Item '{item_id}' not found in current run")
 
     return _item_evidence(item, dataset, submission)
 
