@@ -1,0 +1,119 @@
+{
+  "schema_version": "trace.dataset/1.0",
+  "dataset_id": "hariom-refund-demo-v1",
+  "name": "HariOm Refund Policy Demo",
+  "description": "A 6-item demo dataset about a fictional refund policy for the TRACE AI hackathon demo.",
+  "language": "en",
+  "license": "CC-BY-4.0",
+  "corpus": [
+    {
+      "id": "p01",
+      "title": "Refund Timeline Policy",
+      "text": "All refund requests are processed within 30 business days of receipt. Customers must submit their refund requests through the official portal. Incomplete requests may extend processing time."
+    },
+    {
+      "id": "p02",
+      "title": "Refund Eligibility",
+      "text": "To be eligible for a refund, customers must have made their purchase within the last 90 days. The item must be in its original condition and packaging. Digital products are non-refundable once downloaded."
+    },
+    {
+      "id": "p03",
+      "title": "Return Shipping",
+      "text": "Customers are responsible for return shipping costs unless the item is defective. HariOm provides a prepaid label for defective items. The cost of return shipping is deducted from the refund amount for non-defective returns."
+    },
+    {
+      "id": "p04",
+      "title": "Refund Methods",
+      "text": "Refunds are issued to the original payment method. Credit card refunds take 5-10 additional business days to appear on statements after HariOm processes the refund. Bank transfer refunds may take up to 3 business days."
+    },
+    {
+      "id": "p05",
+      "title": "Partial Refunds",
+      "text": "Partial refunds may be issued for items that are returned in used condition. The refund amount is determined based on the degree of use and any damage to the item. A minimum restocking fee of 15% applies to all partial refunds."
+    },
+    {
+      "id": "p06",
+      "title": "Customer Support",
+      "text": "For questions about refunds, customers can contact our support team at support@hariom.example. Our support team is available Monday through Friday, 9 AM to 6 PM IST. Response times are typically within 24 hours."
+    }
+  ],
+  "items": [
+    {
+      "id": "q01",
+      "group_id": "refund-timeline",
+      "split": "test",
+      "question": "How long does a refund take to process?",
+      "unanswerable": false,
+      "gold_passage_ids": ["p01"],
+      "gold_passage_relevance": [{"passage_id": "p01", "relevance": 3}],
+      "reference_answers": ["30 business days", "thirty business days"],
+      "required_facts": [
+        {"fact_id": "f1", "text": "30 business days", "is_numeric": true}
+      ]
+    },
+    {
+      "id": "q02",
+      "group_id": "refund-eligibility",
+      "split": "test",
+      "question": "What are the eligibility requirements for a refund?",
+      "unanswerable": false,
+      "gold_passage_ids": ["p02"],
+      "gold_passage_relevance": [{"passage_id": "p02", "relevance": 3}],
+      "reference_answers": ["Purchase must be within 90 days, item in original condition, digital products non-refundable"],
+      "required_facts": [
+        {"fact_id": "f1", "text": "within 90 days", "is_numeric": true},
+        {"fact_id": "f2", "text": "original condition"}
+      ]
+    },
+    {
+      "id": "q03",
+      "group_id": "shipping-costs",
+      "split": "test",
+      "question": "Who pays for return shipping?",
+      "unanswerable": false,
+      "gold_passage_ids": ["p03"],
+      "gold_passage_relevance": [{"passage_id": "p03", "relevance": 3}],
+      "reference_answers": ["Customers pay for return shipping unless the item is defective"],
+      "required_facts": [
+        {"fact_id": "f1", "text": "customers are responsible for return shipping"}
+      ]
+    },
+    {
+      "id": "q04",
+      "group_id": "refund-method",
+      "split": "test",
+      "question": "How are credit card refunds issued and how long do they take?",
+      "unanswerable": false,
+      "gold_passage_ids": ["p04"],
+      "gold_passage_relevance": [{"passage_id": "p04", "relevance": 3}],
+      "reference_answers": ["Refunded to original payment method, 5-10 additional business days"],
+      "required_facts": [
+        {"fact_id": "f1", "text": "original payment method"},
+        {"fact_id": "f2", "text": "5-10 additional business days", "is_numeric": true}
+      ]
+    },
+    {
+      "id": "q05",
+      "group_id": "wrong-answer-synthetic",
+      "split": "test",
+      "question": "How long does a refund take to process?",
+      "unanswerable": false,
+      "gold_passage_ids": ["p01"],
+      "gold_passage_relevance": [{"passage_id": "p01", "relevance": 3}],
+      "reference_answers": ["30 business days"],
+      "required_facts": [
+        {"fact_id": "f1", "text": "30 business days", "is_numeric": true}
+      ]
+    },
+    {
+      "id": "q06",
+      "group_id": "unanswerable-synthetic",
+      "split": "test",
+      "question": "What is HariOm's policy on cryptocurrency refunds?",
+      "unanswerable": true,
+      "gold_passage_ids": [],
+      "reference_answers": [],
+      "required_facts": []
+    }
+  ]
+}

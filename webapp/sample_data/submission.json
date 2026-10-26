@@ -1,0 +1,76 @@
+{
+  "schema_version": "trace.submission/1.0",
+  "dataset_id": "hariom-refund-demo-v1",
+  "system": {
+    "name": "HariOm Demo RAG System",
+    "version": "1.0.0",
+    "provenance": {
+      "pipeline_description": "Dense retriever + Reader LLM pipeline for customer support refund queries",
+      "model_name": "gemini-1.5-flash",
+      "retriever_name": "bm25-dense-hybrid",
+      "run_timestamp": "2026-10-26T10:00:00Z"
+    }
+  },
+  "outputs": [
+    {
+      "item_id": "q01",
+      "origin": "recorded_system",
+      "answer": "Refunds are processed within 30 business days of receipt.[p01]",
+      "retrieved": [
+        {"id": "p01", "score": 0.95},
+        {"id": "p04", "score": 0.72},
+        {"id": "p02", "score": 0.61}
+      ]
+    },
+    {
+      "item_id": "q02",
+      "origin": "recorded_system",
+      "answer": "To qualify for a refund, your purchase must be within the last 90 days.[p02] The item must be in original condition and packaging.[p02] Note that digital products are non-refundable once downloaded.[p02]",
+      "retrieved": [
+        {"id": "p02", "score": 0.93},
+        {"id": "p01", "score": 0.68},
+        {"id": "p05", "score": 0.52}
+      ]
+    },
+    {
+      "item_id": "q03",
+      "origin": "recorded_system",
+      "answer": "Customers are responsible for return shipping costs.[p03] However, if the item is defective, HariOm provides a prepaid return label.[p03]",
+      "retrieved": [
+        {"id": "p03", "score": 0.91},
+        {"id": "p01", "score": 0.55},
+        {"id": "p04", "score": 0.48}
+      ]
+    },
+    {
+      "item_id": "q04",
+      "origin": "recorded_system",
+      "answer": "Refunds are issued to the original payment method.[p04] Credit card refunds typically take 5-10 additional business days to appear after processing.[p04]",
+      "retrieved": [
+        {"id": "p04", "score": 0.94},
+        {"id": "p01", "score": 0.66},
+        {"id": "p03", "score": 0.44}
+      ]
+    },
+    {
+      "item_id": "q05",
+      "origin": "synthetic_fixture",
+      "fixture_note": "Synthetic failure fixture: hallucinated 7-10 day timeline, invalid citation p99, and ungrounded promise of free gift cards.",
+      "answer": "Refunds typically take about 7-10 days.[p99] Our team works quickly to process them. Also, you will receive free gift cards as compensation for the wait!",
+      "retrieved": [
+        {"id": "p03", "score": 0.40},
+        {"id": "p06", "score": 0.31}
+      ]
+    },
+    {
+      "item_id": "q06",
+      "origin": "synthetic_fixture",
+      "fixture_note": "Synthetic refusal fixture: unanswerable question about cryptocurrency handled with rule-based refusal.",
+      "answer": "There is no information provided about cryptocurrency refunds in the documents.",
+      "retrieved": [
+        {"id": "p01", "score": 0.25},
+        {"id": "p02", "score": 0.22}
+      ]
+    }
+  ]
+}
