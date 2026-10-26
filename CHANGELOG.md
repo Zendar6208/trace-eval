@@ -5,6 +5,50 @@ All notable changes to the TRACE AI engine (`trace-eval`) are documented in this
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.0] - 2026-10-26
+
+### Added - Milestone M1: Deterministic Evaluation (Tier 0)
+
+- **Deterministic Retrieval Metrics (`trace_eval/metrics/retrieval.py`)**:
+  - `hit_at_k`: 1.0 if any gold passage appears in top-k, else 0.0.
+  - `recall_at_k`: Fraction of gold passages retrieved in top-k.
+  - `precision_at_k`: Fraction of top-k passages that are gold.
+  - `compute_mrr`: Mean Reciprocal Rank (1/rank of first gold passage).
+  - `compute_ndcg_at_k`: Normalized Discounted Cumulative Gain with graded gains ($2^{\text{rel}} - 1$) and $\log_2(i+1)$ discounting.
+  - Fallback token overlap ($\ge 0.8$) against gold passage text for unindexed chunk IDs per Section 3.
+- **Deterministic Answer Correctness (`trace_eval/metrics/correctness.py`)**:
+  - `compute_token_f1`: Multiset SQuAD-style token F1 against multiple gold reference answers.
+  - `match_required_facts`: Normalized containment matching on fact text and registered aliases.
+  - `evaluate_correctness`: Correct/partial/incorrect verdict determination.
+- **Refusal Detection & Unanswerables (`trace_eval/refusal.py`)**:
+  - Rule-based regex refusal patterns per Section 2.5.
+  - For unanswerable items, verdict is `correct` if and only if the answer is a refusal; non-refusals flagged as `ANSWERED_UNANSWERABLE`.
+  - False refusals on answerable items flagged as `FALSE_REFUSAL` and graded `incorrect`.
+- **Metric Independence Enforcement (`tests/test_metric_independence.py`)**:
+  - Verified retrieval metrics strictly read only `retrieved` and gold passages, never reading answer or citations.
+  - Verified correctness metrics strictly read only answer text, references, and required facts, never reading retrieval results or citations.
+- **End-to-End Tier-0 Evaluator (`trace_eval/evaluator.py`)**:
+  - `evaluate_item`: Single item evaluation and multi-label failure type assignment (`RETRIEVAL_MISS`, `WRONG_ANSWER`, `ANSWERED_UNANSWERABLE`, `FALSE_REFUSAL`, `PASS`).
+  - `evaluate_run`: Full submission evaluation across all benchmark items, aggregating stratified summaries (`recorded_system`, `synthetic_fixture`, `combined`) and generating verified `RunResult` with cryptographic `result_hash` and derived `run_id`.
+
+## [0.1.1] - 2026-10-26
+
+### Added - Milestone M0 Corrections
+
+- **Calibration Record Contract (`trace_eval/schema/run.py`)**:
+  - Added typed `CalibrationRecord`, `CalibrationGrid`, and `CalibrationThresholds` to `RunConfig` per Section 5.
+- **Run Hash & ID Integrity Enforcement**:
+  - `RunResult` automatically verifies that `result_hash` and `run_id` match the computed hash of the deterministic semantic core upon validation.
+- **Semantic Citation Support Validators**:
+  - Enforced CA-4: Orphan citations (`sentence_index=None`) strictly cannot have `supports=True`.
+  - Enforced CA-7: Non-`ok` citations (`not_retrieved`, `unknown_id`, `index_out_of_range`) strictly cannot have `supports=True`.
+- **Graded Relevance Contract (`trace_eval/schema/dataset.py`)**:
+  - Added `GoldPassageRelevance` (relevance 1-3) to `DatasetItem` for graded nDCG gains.
+- **Cross-Document Integrity Verification (`trace_eval/validation.py`)**:
+  - Validates referential and cryptographic bindings across `Dataset`, `Submission`, `LabelsDocument`, and `RunResult`.
+- **Versioned Reference Fixtures**:
+  - Created `golden_dataset_m0_corrected.json`, `golden_run_m0_corrected.json`, and `golden_hashes_m0_corrected.json` documenting the schema additions.
+
 ## [0.1.0] - 2026-10-26
 
 ### Added - Milestone M0: Repository Foundation, Data Contracts, Canonical Serialization & Testing Infrastructure

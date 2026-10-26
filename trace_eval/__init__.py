@@ -1,6 +1,7 @@
 """TRACE AI: Deterministic-first RAG evaluation engine and workbench."""
 
 from trace_eval.canonical import canonical_json
+from trace_eval.evaluator import evaluate_item, evaluate_run
 from trace_eval.hashing import (
     compute_run_hashes,
     extract_run_core,
@@ -28,6 +29,8 @@ __all__ = [
     "extract_run_core",
     "compute_run_hashes",
     "verify_run_hashes",
+    "evaluate_item",
+    "evaluate_run",
     "CrossDocumentValidationError",
     "validate_cross_document_integrity",
     "validate_submission_against_dataset",
