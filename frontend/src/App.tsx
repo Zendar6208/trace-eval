@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Play,
   CheckCircle2,
@@ -14,7 +14,8 @@ import {
   Check,
   Sparkles,
   HelpCircle,
-  X
+  X,
+  Target
 } from 'lucide-react';
 import type { EvaluationRunResponse, ItemDetailResponse } from './types';
 
@@ -50,7 +51,6 @@ const FAILURE_DESCRIPTIONS: Record<string, { short: string; explanation: string 
   },
 };
 
-// Filter out 'PASS' to obtain genuine failures
 function getActualFailures(failureTypes: string[] | undefined | null): string[] {
   if (!failureTypes) return [];
   return failureTypes.filter((ft) => ft !== 'PASS');
@@ -64,6 +64,40 @@ function formatPercent(val: number | null | undefined): string {
 function formatDecimal(val: number | null | undefined): string {
   if (val === null || val === undefined) return '—';
   return val.toFixed(3);
+}
+
+// Lightweight smooth number count-up component
+function AnimatedNumber({ value, suffix = '' }: { value: number | null | undefined; suffix?: string }) {
+  const [display, setDisplay] = useState(0);
+
+  useEffect(() => {
+    if (value === null || value === undefined) return;
+    const target = Math.round(value * 100);
+    const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (prefersReducedMotion) {
+      setDisplay(target);
+      return;
+    }
+
+    const duration = 450;
+    const start = performance.now();
+
+    const frame = (now: number) => {
+      const elapsed = now - start;
+      const progress = Math.min(elapsed / duration, 1);
+      // easeOutExpo
+      const eased = progress === 1 ? 1 : 1 - Math.pow(2, -10 * progress);
+      setDisplay(Math.round(eased * target));
+      if (progress < 1) {
+        requestAnimationFrame(frame);
+      }
+    };
+
+    requestAnimationFrame(frame);
+  }, [value]);
+
+  if (value === null || value === undefined) return <span>Not evaluated</span>;
+  return <span>{display}{suffix}</span>;
 }
 
 // Compute an intelligent, human-readable diagnostic headline from backend metrics
@@ -126,6 +160,10 @@ export default function App() {
   const [detailLoading, setDetailLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Motion & Interactive Tracing State
+  const [activeClaimIndex, setActiveClaimIndex] = useState<number | null>(null);
+  const [activePassageId, setActivePassageId] = useState<string | null>(null);
+
   // Upload State
   const [datasetFile, setDatasetFile] = useState<File | null>(null);
   const [submissionFile, setSubmissionFile] = useState<File | null>(null);
@@ -138,6 +176,8 @@ export default function App() {
   const [showEvidenceTechDetails, setShowEvidenceTechDetails] = useState(false);
   const [copiedHash, setCopiedHash] = useState(false);
   const [filterStatus, setFilterStatus] = useState<'all' | 'failed' | 'passed'>('all');
+
+  const evidenceSectionRef = useRef<HTMLDivElement>(null);
 
   // ── Actions ──────────────────────────────────────────────────────────────────
 
@@ -221,6 +261,8 @@ export default function App() {
 
   const selectItem = async (itemId: string) => {
     setSelectedItemId(itemId);
+    setActiveClaimIndex(null);
+    setActivePassageId(null);
     setDetailLoading(true);
     try {
       const res = await fetch(`/api/evaluate/item/${itemId}`);
@@ -233,6 +275,44 @@ export default function App() {
       console.error(err);
     } finally {
       setDetailLoading(false);
+    }
+  };
+
+  const toggleClaimTrace = (sentenceIndex: number) => {
+    if (activeClaimIndex === sentenceIndex) {
+      setActiveClaimIndex(null);
+      setActivePassageId(null);
+    } else {
+      setActiveClaimIndex(sentenceIndex);
+      // Find attached citation passage IDs
+      if (itemDetail?.citations) {
+        const matchingCits = itemDetail.citations.filter((c) => c.sentence_index === sentenceIndex);
+        if (matchingCits.length > 0) {
+          setActivePassageId(matchingCits[0].passage_id);
+        } else {
+          setActivePassageId(null);
+        }
+      }
+      // Smoothly scroll down to evidence if not in view
+      if (evidenceSectionRef.current) {
+        evidenceSectionRef.current.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }
+    }
+  };
+
+  const togglePassageTrace = (passageId: string) => {
+    if (activePassageId === passageId) {
+      setActivePassageId(null);
+      setActiveClaimIndex(null);
+    } else {
+      setActivePassageId(passageId);
+      // Find corresponding sentence index
+      if (itemDetail?.citations) {
+        const matchingCit = itemDetail.citations.find((c) => c.passage_id === passageId);
+        if (matchingCit && matchingCit.sentence_index !== null) {
+          setActiveClaimIndex(matchingCit.sentence_index);
+        }
+      }
     }
   };
 
@@ -262,7 +342,6 @@ export default function App() {
     }
   };
 
-  // Filtered items
   const filteredItems = (runData?.items || []).filter((item) => {
     const failures = getActualFailures(item.failure_types);
     if (filterStatus === 'failed') return failures.length > 0;
@@ -275,7 +354,7 @@ export default function App() {
   return (
     <div className="min-h-screen bg-[#0C0F17] text-[#F8FAFC] font-sans antialiased flex flex-col selection:bg-[#10B981]/20 selection:text-[#10B981]">
       {/* ── Top Header ── */}
-      <header className="border-b border-[#1F2639] bg-[#141824]/80 backdrop-blur-md sticky top-0 z-40">
+      <header className="border-b border-[#1F2639] bg-[#141824]/80 backdrop-blur-md sticky top-0 z-40 transition-colors">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 rounded-lg bg-[#10B981] text-[#0C0F17] flex items-center justify-center font-serif font-black text-lg shadow-sm">
@@ -284,7 +363,7 @@ export default function App() {
             <div className="flex items-center gap-2">
               <span className="font-serif font-bold text-xl tracking-tight text-white">TRACE.</span>
               <span className="text-[11px] font-mono tracking-wider bg-[#10B981]/10 text-[#10B981] border border-[#10B981]/30 px-2 py-0.5 rounded font-semibold">
-                RAG Diagnostic Report
+                RAG Diagnostic Workbench
               </span>
             </div>
           </div>
@@ -292,7 +371,7 @@ export default function App() {
           <div className="flex items-center gap-4 text-xs">
             <button
               onClick={() => setShowHowItWorks(true)}
-              className="inline-flex items-center gap-1.5 text-[#94A3B8] hover:text-[#F8FAFC] font-medium transition cursor-pointer"
+              className="inline-flex items-center gap-1.5 text-[#94A3B8] hover:text-[#F8FAFC] font-medium transition cursor-pointer active:scale-95"
             >
               <HelpCircle className="w-4 h-4" />
               <span>How TRACE evaluates</span>
@@ -302,7 +381,7 @@ export default function App() {
               href="https://github.com/darshan-sheth/trace-eval"
               target="_blank"
               rel="noreferrer"
-              className="inline-flex items-center gap-1.5 text-[#94A3B8] hover:text-[#F8FAFC] font-medium transition"
+              className="inline-flex items-center gap-1.5 text-[#94A3B8] hover:text-[#F8FAFC] font-medium transition active:scale-95"
             >
               <ExternalLink className="w-3.5 h-3.5" />
               <span>GitHub</span>
@@ -315,20 +394,24 @@ export default function App() {
       <main className="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-8">
         {!runData ? (
           /* ══════════════════════════════════════════════════════════════════════
-             SCREEN 1: SIMPLE EVALUATION WORKSPACE
+             SCREEN 1: SIGNATURE KINETIC LANDING & WORKSPACE
              ══════════════════════════════════════════════════════════════════════ */
           <div className="space-y-12 max-w-4xl mx-auto pt-6 pb-16">
+            {/* Signature Animation 1: Kinetic Typography */}
             <div className="text-center space-y-4">
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#10B981]/10 text-[#10B981] border border-[#10B981]/20 text-xs font-medium">
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#10B981]/10 text-[#10B981] border border-[#10B981]/20 text-xs font-medium animate-hero-1">
                 <Sparkles className="w-3.5 h-3.5" />
                 <span>Deterministic-First RAG Evaluation Engine</span>
               </div>
-              <h1 className="text-4xl sm:text-5xl font-serif font-bold tracking-tight text-white">
-                Know when your AI gets it wrong.
+
+              <h1 className="text-4xl sm:text-6xl font-serif font-bold tracking-tight text-white leading-[1.1] animate-hero-1">
+                Know when your AI{' '}
+                <span className="emphasis-glitch">gets it wrong.</span>
               </h1>
-              <p className="text-base sm:text-lg text-[#94A3B8] max-w-2xl mx-auto leading-relaxed">
-                Receive an intelligent diagnostic report on your RAG system. Trace every factual claim back
-                to retrieved evidence, detect hallucinations, and isolate retrieval misses.
+
+              <p className="text-base sm:text-lg text-[#94A3B8] max-w-2xl mx-auto leading-relaxed animate-hero-2">
+                Trace every factual claim back to retrieved evidence, identify hallucinations with local
+                cross-encoder inference, and isolate retrieval failures with cryptographic reproducibility.
               </p>
             </div>
 
@@ -342,190 +425,214 @@ export default function App() {
               </div>
             )}
 
-            <div className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-stretch">
-                {/* Option 1: Sample Evaluation */}
-                <div className="bg-[#141824] border border-[#1F2639] rounded-2xl p-6 flex flex-col justify-between hover:border-[#10B981]/40 transition-colors shadow-lg">
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-mono font-medium bg-[#10B981]/15 text-[#10B981] px-2.5 py-1 rounded-md">
-                        Instant • Curated Benchmark
-                      </span>
-                    </div>
-
-                    <div>
-                      <h2 className="font-serif text-2xl font-bold text-white">Try Sample Evaluation</h2>
-                      <p className="text-sm text-[#94A3B8] mt-2 leading-relaxed">
-                        Test TRACE with a curated enterprise benchmark comparing customer support queries,
-                        policy lookups, phantom citations, and unsupported answers.
-                      </p>
-                    </div>
-
-                    <div className="space-y-2 pt-2 text-xs text-[#94A3B8] border-t border-[#1F2639]">
-                      <div className="flex items-center gap-2">
-                        <CheckCircle2 className="w-4 h-4 text-[#10B981]" />
-                        <span>Pre-configured dataset & model responses</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <CheckCircle2 className="w-4 h-4 text-[#10B981]" />
-                        <span>Real local cross-encoder NLI inference</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <CheckCircle2 className="w-4 h-4 text-[#10B981]" />
-                        <span>Sentence-level claim and citation verification</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="pt-6">
-                    <button
-                      onClick={runSampleEvaluation}
-                      disabled={loading}
-                      className="w-full inline-flex items-center justify-center gap-2 bg-[#10B981] hover:bg-[#059669] text-[#0C0F17] font-semibold py-3 px-4 rounded-xl transition cursor-pointer disabled:opacity-50 text-sm shadow-md"
-                    >
-                      {loading ? (
-                        <>
-                          <div className="w-4 h-4 border-2 border-[#0C0F17]/30 border-t-[#0C0F17] rounded-full animate-spin" />
-                          <span>Analyzing benchmark cases...</span>
-                        </>
-                      ) : (
-                        <>
-                          <Play className="w-4 h-4 fill-[#0C0F17]" />
-                          <span>Run Sample Evaluation</span>
-                        </>
-                      )}
-                    </button>
-                  </div>
+            {/* Signature Animation 2 & 3: Evaluation Sequence & Workspace */}
+            {loading ? (
+              <div className="bg-[#141824] border border-[#10B981]/40 rounded-3xl p-8 sm:p-12 text-center shadow-2xl space-y-8 animate-card-1">
+                <div className="space-y-3">
+                  <div className="w-12 h-12 rounded-full border-2 border-[#10B981] border-t-transparent animate-spin mx-auto shadow-lg" />
+                  <h2 className="text-2xl font-serif font-bold text-white">
+                    Evaluating benchmark cases...
+                  </h2>
+                  <p className="text-sm text-[#94A3B8] max-w-md mx-auto">
+                    Running deterministic metrics and local cross-encoder NLI verification.
+                  </p>
                 </div>
 
-                {/* Option 2: Upload Evaluation */}
-                <div className="bg-[#141824] border border-[#1F2639] rounded-2xl p-6 flex flex-col justify-between hover:border-[#10B981]/40 transition-colors shadow-lg">
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-mono font-medium bg-[#1F2639] text-[#94A3B8] px-2.5 py-1 rounded-md">
-                        Custom Run
-                      </span>
-                    </div>
-
-                    <div>
-                      <h2 className="font-serif text-2xl font-bold text-white">Upload Evaluation Data</h2>
-                      <p className="text-sm text-[#94A3B8] mt-2 leading-relaxed">
-                        Evaluate your own RAG system by uploading your dataset and submission JSON files
-                        conforming to TRACE methodology contracts.
-                      </p>
-                    </div>
-
-                    <form id="upload-form" onSubmit={handleUploadEvaluation} className="space-y-3 pt-1">
-                      <div>
-                        <label className="block text-xs font-medium text-[#F8FAFC] mb-1">
-                          Dataset JSON (<span className="font-mono text-[11px] text-[#94A3B8]">trace.dataset/1.0</span>)
-                        </label>
-                        <input
-                          type="file"
-                          accept=".json"
-                          onChange={(e) => setDatasetFile(e.target.files?.[0] || null)}
-                          className="w-full text-xs text-[#94A3B8] file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-[#10B981]/20 file:text-[#10B981] hover:file:bg-[#10B981]/30 file:cursor-pointer border border-[#1F2639] rounded-lg p-1.5 bg-[#0C0F17]"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block text-xs font-medium text-[#F8FAFC] mb-1">
-                          Submission JSON (<span className="font-mono text-[11px] text-[#94A3B8]">trace.submission/1.0</span>)
-                        </label>
-                        <input
-                          type="file"
-                          accept=".json"
-                          onChange={(e) => setSubmissionFile(e.target.files?.[0] || null)}
-                          className="w-full text-xs text-[#94A3B8] file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-[#10B981]/20 file:text-[#10B981] hover:file:bg-[#10B981]/30 file:cursor-pointer border border-[#1F2639] rounded-lg p-1.5 bg-[#0C0F17]"
-                        />
-                      </div>
-
-                      <label className="flex items-center gap-2 pt-1 text-xs text-[#94A3B8] cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={requireCitations}
-                          onChange={(e) => setRequireCitations(e.target.checked)}
-                          className="rounded border-[#1F2639] text-[#10B981] focus:ring-[#10B981] bg-[#0C0F17]"
-                        />
-                        <span>Require & evaluate citations</span>
-                      </label>
-
-                      <div className="flex items-center gap-3 pt-1 text-[11px] text-[#64748B]">
-                        <button
-                          type="button"
-                          onClick={() => downloadSample('dataset')}
-                          className="inline-flex items-center gap-1 hover:text-[#10B981] underline cursor-pointer"
-                        >
-                          <Download className="w-3 h-3" />
-                          <span>Sample dataset.json</span>
-                        </button>
-                        <span>•</span>
-                        <button
-                          type="button"
-                          onClick={() => downloadSample('submission')}
-                          className="inline-flex items-center gap-1 hover:text-[#10B981] underline cursor-pointer"
-                        >
-                          <Download className="w-3 h-3" />
-                          <span>Sample submission.json</span>
-                        </button>
-                      </div>
-
-                      {uploadError && (
-                        <div className="p-2.5 rounded-lg bg-[#7F1D1D]/30 border border-[#EF4444]/30 text-[#F87171] text-xs">
-                          {uploadError}
-                        </div>
-                      )}
-                    </form>
+                {/* The 4-Stage Evaluation Sequence */}
+                <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 max-w-2xl mx-auto text-left font-mono text-xs">
+                  <div className="p-3 rounded-xl bg-[#0C0F17] border border-[#1F2639] flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-[#10B981] animate-ping" />
+                    <span className="text-[#94A3B8]">1. Passages</span>
                   </div>
-
-                  <div className="pt-6">
-                    <button
-                      type="submit"
-                      form="upload-form"
-                      disabled={loading || !datasetFile || !submissionFile}
-                      className="w-full inline-flex items-center justify-center gap-2 bg-[#F8FAFC] hover:bg-white text-[#0C0F17] font-semibold py-3 px-4 rounded-xl transition cursor-pointer disabled:opacity-40 text-sm shadow-md"
-                    >
-                      {loading ? (
-                        <>
-                          <div className="w-4 h-4 border-2 border-[#0C0F17]/30 border-t-[#0C0F17] rounded-full animate-spin" />
-                          <span>Validating & evaluating...</span>
-                        </>
-                      ) : (
-                        <>
-                          <Upload className="w-4 h-4" />
-                          <span>Evaluate Uploaded Files</span>
-                        </>
-                      )}
-                    </button>
+                  <div className="p-3 rounded-xl bg-[#0C0F17] border border-[#1F2639] flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-[#10B981] animate-ping" />
+                    <span className="text-[#94A3B8]">2. Correctness</span>
+                  </div>
+                  <div className="p-3 rounded-xl bg-[#0C0F17] border border-[#1F2639] flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-[#10B981] animate-ping" />
+                    <span className="text-[#94A3B8]">3. Citations</span>
+                  </div>
+                  <div className="p-3 rounded-xl bg-[#0C0F17] border border-[#1F2639] flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-[#10B981] animate-ping" />
+                    <span className="text-[#94A3B8]">4. Grounding</span>
                   </div>
                 </div>
               </div>
-            </div>
+            ) : (
+              <div className="space-y-4 animate-hero-3">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-stretch">
+                  {/* Option 1: Sample Evaluation */}
+                  <div className="bg-[#141824] border border-[#1F2639] rounded-2xl p-6 flex flex-col justify-between hover:border-[#10B981]/40 transition duration-200 shadow-lg">
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-mono font-medium bg-[#10B981]/15 text-[#10B981] px-2.5 py-1 rounded-md">
+                          Instant • Tier 1 Hybrid
+                        </span>
+                      </div>
+
+                      <div>
+                        <h2 className="font-serif text-2xl font-bold text-white">Try Sample Evaluation</h2>
+                        <p className="text-sm text-[#94A3B8] mt-2 leading-relaxed">
+                          Test TRACE with a curated enterprise benchmark comparing customer support queries,
+                          policy lookups, phantom citations, and unsupported answers.
+                        </p>
+                      </div>
+
+                      <div className="space-y-2 pt-2 text-xs text-[#94A3B8] border-t border-[#1F2639]">
+                        <div className="flex items-center gap-2">
+                          <CheckCircle2 className="w-4 h-4 text-[#10B981]" />
+                          <span>Pre-configured dataset & model responses</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <CheckCircle2 className="w-4 h-4 text-[#10B981]" />
+                          <span>Real local cross-encoder NLI inference</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <CheckCircle2 className="w-4 h-4 text-[#10B981]" />
+                          <span>Sentence-level claim and citation verification</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="pt-6">
+                      <button
+                        onClick={runSampleEvaluation}
+                        disabled={loading}
+                        className="w-full inline-flex items-center justify-center gap-2 bg-[#10B981] hover:bg-[#059669] text-[#0C0F17] font-semibold py-3 px-4 rounded-xl transition cursor-pointer active:scale-[0.98] disabled:opacity-50 text-sm shadow-md"
+                      >
+                        <Play className="w-4 h-4 fill-[#0C0F17]" />
+                        <span>Run Sample Evaluation</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Option 2: Upload Evaluation */}
+                  <div className="bg-[#141824] border border-[#1F2639] rounded-2xl p-6 flex flex-col justify-between hover:border-[#10B981]/40 transition duration-200 shadow-lg">
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-mono font-medium bg-[#1F2639] text-[#94A3B8] px-2.5 py-1 rounded-md">
+                          Custom Run
+                        </span>
+                      </div>
+
+                      <div>
+                        <h2 className="font-serif text-2xl font-bold text-white">Upload Evaluation Data</h2>
+                        <p className="text-sm text-[#94A3B8] mt-2 leading-relaxed">
+                          Evaluate your own RAG system by uploading your dataset and submission JSON files
+                          conforming to TRACE methodology contracts.
+                        </p>
+                      </div>
+
+                      <form id="upload-form" onSubmit={handleUploadEvaluation} className="space-y-3 pt-1">
+                        <div>
+                          <label className="block text-xs font-medium text-[#F8FAFC] mb-1">
+                            Dataset JSON (<span className="font-mono text-[11px] text-[#94A3B8]">trace.dataset/1.0</span>)
+                          </label>
+                          <input
+                            type="file"
+                            accept=".json"
+                            onChange={(e) => setDatasetFile(e.target.files?.[0] || null)}
+                            className="w-full text-xs text-[#94A3B8] file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-[#10B981]/20 file:text-[#10B981] hover:file:bg-[#10B981]/30 file:cursor-pointer border border-[#1F2639] rounded-lg p-1.5 bg-[#0C0F17]"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-xs font-medium text-[#F8FAFC] mb-1">
+                            Submission JSON (<span className="font-mono text-[11px] text-[#94A3B8]">trace.submission/1.0</span>)
+                          </label>
+                          <input
+                            type="file"
+                            accept=".json"
+                            onChange={(e) => setSubmissionFile(e.target.files?.[0] || null)}
+                            className="w-full text-xs text-[#94A3B8] file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-[#10B981]/20 file:text-[#10B981] hover:file:bg-[#10B981]/30 file:cursor-pointer border border-[#1F2639] rounded-lg p-1.5 bg-[#0C0F17]"
+                          />
+                        </div>
+
+                        <label className="flex items-center gap-2 pt-1 text-xs text-[#94A3B8] cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={requireCitations}
+                            onChange={(e) => setRequireCitations(e.target.checked)}
+                            className="rounded border-[#1F2639] text-[#10B981] focus:ring-[#10B981] bg-[#0C0F17]"
+                          />
+                          <span>Require & evaluate citations</span>
+                        </label>
+
+                        <div className="flex items-center gap-3 pt-1 text-[11px] text-[#64748B]">
+                          <button
+                            type="button"
+                            onClick={() => downloadSample('dataset')}
+                            className="inline-flex items-center gap-1 hover:text-[#10B981] underline cursor-pointer active:scale-95"
+                          >
+                            <Download className="w-3 h-3" />
+                            <span>Sample dataset.json</span>
+                          </button>
+                          <span>•</span>
+                          <button
+                            type="button"
+                            onClick={() => downloadSample('submission')}
+                            className="inline-flex items-center gap-1 hover:text-[#10B981] underline cursor-pointer active:scale-95"
+                          >
+                            <Download className="w-3 h-3" />
+                            <span>Sample submission.json</span>
+                          </button>
+                        </div>
+
+                        {uploadError && (
+                          <div className="p-2.5 rounded-lg bg-[#7F1D1D]/30 border border-[#EF4444]/30 text-[#F87171] text-xs">
+                            {uploadError}
+                          </div>
+                        )}
+                      </form>
+                    </div>
+
+                    <div className="pt-6">
+                      <button
+                        type="submit"
+                        form="upload-form"
+                        disabled={loading || !datasetFile || !submissionFile}
+                        className="w-full inline-flex items-center justify-center gap-2 bg-[#F8FAFC] hover:bg-white text-[#0C0F17] font-semibold py-3 px-4 rounded-xl transition cursor-pointer active:scale-[0.98] disabled:opacity-40 text-sm shadow-md"
+                      >
+                        <Upload className="w-4 h-4" />
+                        <span>Evaluate Uploaded Files</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         ) : (
           /* ══════════════════════════════════════════════════════════════════════
-             SCREEN 2 & 3: REFINED RESULTS & DIAGNOSTIC REPORT
+             SCREEN 2 & 3: REFINED RESULTS & INTERACTIVE EVIDENCE WORKBENCH
              ══════════════════════════════════════════════════════════════════════ */
-          <div className="space-y-8">
-            {/* Navigation Bar */}
+          <div className="space-y-8 animate-hero-1">
+            {/* Top Navigation Bar */}
             <div className="flex items-center justify-between pb-2">
               <button
                 onClick={() => {
                   setRunData(null);
                   setSelectedItemId(null);
                   setItemDetail(null);
+                  setActiveClaimIndex(null);
+                  setActivePassageId(null);
                 }}
-                className="inline-flex items-center gap-2 text-xs font-medium text-[#94A3B8] hover:text-white transition cursor-pointer"
+                className="inline-flex items-center gap-2 text-xs font-medium text-[#94A3B8] hover:text-white transition cursor-pointer active:scale-95"
               >
                 <ArrowLeft className="w-4 h-4" />
                 <span>Back to Evaluation Workspace</span>
               </button>
 
-              {diagnostic?.isDemonstration && (
-                <span className="text-xs font-mono bg-[#1F2639] text-[#94A3B8] border border-[#2A324B] px-3 py-1 rounded-full">
-                  Demonstration Benchmark • 5 Cases
+              <div className="flex items-center gap-3">
+                <span className="text-xs font-mono bg-[#10B981]/15 text-[#10B981] border border-[#10B981]/30 px-3 py-1 rounded-full">
+                  {runData.evaluation_tier}
                 </span>
-              )}
+                {diagnostic?.isDemonstration && (
+                  <span className="text-xs font-mono bg-[#1F2639] text-[#94A3B8] border border-[#2A324B] px-3 py-1 rounded-full">
+                    Demonstration Benchmark • 5 Cases
+                  </span>
+                )}
+              </div>
             </div>
 
             {/* ── Human-Readable Diagnostic Summary ── */}
@@ -546,14 +653,14 @@ export default function App() {
               <div className="pt-2 border-t border-[#1F2639]/80">
                 <button
                   onClick={() => setShowTechDetails(!showTechDetails)}
-                  className="inline-flex items-center gap-1.5 text-xs font-mono font-medium text-[#94A3B8] hover:text-[#10B981] cursor-pointer transition"
+                  className="inline-flex items-center gap-1.5 text-xs font-mono font-medium text-[#94A3B8] hover:text-[#10B981] cursor-pointer transition active:scale-95"
                 >
                   {showTechDetails ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
                   <span>{showTechDetails ? 'Hide Technical Metadata & Hashes' : 'Technical Details & Reproducibility'}</span>
                 </button>
 
                 {showTechDetails && (
-                  <div className="mt-4 p-4 rounded-xl bg-[#0C0F17] border border-[#1F2639] grid grid-cols-1 md:grid-cols-2 gap-4 text-xs font-mono text-[#94A3B8]">
+                  <div className="mt-4 p-4 rounded-xl bg-[#0C0F17] border border-[#1F2639] grid grid-cols-1 md:grid-cols-2 gap-4 text-xs font-mono text-[#94A3B8] animate-hero-1">
                     <div className="space-y-2">
                       <div>
                         <span className="text-[#64748B] block text-[10px] uppercase">Run ID</span>
@@ -576,7 +683,7 @@ export default function App() {
                           <span className="text-white truncate select-all">{runData.result_hash}</span>
                           <button
                             onClick={copyHashToClipboard}
-                            className="text-[#94A3B8] hover:text-[#10B981] p-1 cursor-pointer"
+                            className="text-[#94A3B8] hover:text-[#10B981] p-1 cursor-pointer active:scale-90"
                             title="Copy full hash"
                           >
                             {copiedHash ? <Check className="w-3.5 h-3.5 text-[#10B981]" /> : <Copy className="w-3.5 h-3.5" />}
@@ -595,7 +702,7 @@ export default function App() {
               </div>
             </div>
 
-            {/* ── The 4 Primary Evaluation Dimensions ── */}
+            {/* ── Signature Animation 4: Staggered Dimension Reveal & Count-ups ── */}
             <div>
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-xs font-mono uppercase tracking-wider text-[#94A3B8] font-semibold">
@@ -608,7 +715,7 @@ export default function App() {
 
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 {/* 1. Found the right information */}
-                <div className="bg-[#141824] border border-[#1F2639] rounded-2xl p-5 shadow-lg flex flex-col justify-between space-y-4">
+                <div className="bg-[#141824] border border-[#1F2639] rounded-2xl p-5 shadow-lg flex flex-col justify-between space-y-4 animate-card-1">
                   <div className="space-y-1">
                     <span className="text-[11px] font-mono uppercase tracking-wider text-[#94A3B8] font-semibold">
                       Retrieval
@@ -624,7 +731,7 @@ export default function App() {
                         const items = runData.items.filter((i) => i.retrieval?.hit_at_k?.['5'] !== undefined);
                         if (!items.length) return 'Not evaluated';
                         const avg = items.reduce((acc, i) => acc + (i.retrieval?.hit_at_k?.['5'] || 0), 0) / items.length;
-                        return formatPercent(avg);
+                        return <AnimatedNumber value={avg} suffix="%" />;
                       })()}
                     </div>
                     <div className="text-[11px] text-[#64748B] mt-1.5 font-mono">
@@ -634,7 +741,7 @@ export default function App() {
                 </div>
 
                 {/* 2. Answered correctly */}
-                <div className="bg-[#141824] border border-[#1F2639] rounded-2xl p-5 shadow-lg flex flex-col justify-between space-y-4">
+                <div className="bg-[#141824] border border-[#1F2639] rounded-2xl p-5 shadow-lg flex flex-col justify-between space-y-4 animate-card-2">
                   <div className="space-y-1">
                     <span className="text-[11px] font-mono uppercase tracking-wider text-[#94A3B8] font-semibold">
                       Correctness
@@ -646,7 +753,7 @@ export default function App() {
                   </div>
                   <div className="pt-3 border-t border-[#1F2639]">
                     <div className="text-3xl font-serif font-black text-[#10B981]">
-                      {formatPercent(runData.summary.combined?.mean_fact_recall)}
+                      <AnimatedNumber value={runData.summary.combined?.mean_fact_recall} suffix="%" />
                     </div>
                     <div className="text-[11px] text-[#64748B] mt-1.5 font-mono">
                       Fact Recall • Token F1: {formatDecimal(runData.summary.combined?.mean_token_f1)}
@@ -655,7 +762,7 @@ export default function App() {
                 </div>
 
                 {/* 3. Backed up its claims */}
-                <div className="bg-[#141824] border border-[#1F2639] rounded-2xl p-5 shadow-lg flex flex-col justify-between space-y-4">
+                <div className="bg-[#141824] border border-[#1F2639] rounded-2xl p-5 shadow-lg flex flex-col justify-between space-y-4 animate-card-3">
                   <div className="space-y-1">
                     <span className="text-[11px] font-mono uppercase tracking-wider text-[#94A3B8] font-semibold">
                       Citations
@@ -667,7 +774,7 @@ export default function App() {
                   </div>
                   <div className="pt-3 border-t border-[#1F2639]">
                     <div className="text-3xl font-serif font-black text-[#10B981]">
-                      {formatPercent(runData.summary.combined?.mean_citation_precision)}
+                      <AnimatedNumber value={runData.summary.combined?.mean_citation_precision} suffix="%" />
                     </div>
                     <div className="text-[11px] text-[#64748B] mt-1.5 font-mono">
                       Citation Precision • Phantom: {formatPercent(runData.summary.combined?.mean_phantom_rate)}
@@ -676,7 +783,7 @@ export default function App() {
                 </div>
 
                 {/* 4. Avoided making things up */}
-                <div className="bg-[#141824] border border-[#1F2639] rounded-2xl p-5 shadow-lg flex flex-col justify-between space-y-4">
+                <div className="bg-[#141824] border border-[#1F2639] rounded-2xl p-5 shadow-lg flex flex-col justify-between space-y-4 animate-card-4">
                   <div className="space-y-1">
                     <span className="text-[11px] font-mono uppercase tracking-wider text-[#94A3B8] font-semibold">
                       Grounding
@@ -691,7 +798,7 @@ export default function App() {
                       {(() => {
                         const rate = runData.summary.combined?.mean_unsupported_claim_rate;
                         if (rate === null || rate === undefined) return 'Not evaluated';
-                        return formatPercent(1 - rate);
+                        return <AnimatedNumber value={1 - rate} suffix="%" />;
                       })()}
                     </div>
                     <div className="text-[11px] text-[#64748B] mt-1.5 font-mono">
@@ -702,7 +809,7 @@ export default function App() {
               </div>
             </div>
 
-            {/* ── Explore Your Results & Evidence Inspector Split Layout ── */}
+            {/* ── Signature Animation 5: Interactive Evidence Tracing Workbench ── */}
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
               {/* Left Column: Explore Your Results (5 cols) */}
               <div className="lg:col-span-5 bg-[#141824] border border-[#1F2639] rounded-2xl shadow-xl overflow-hidden">
@@ -716,7 +823,7 @@ export default function App() {
                   <div className="flex items-center gap-1 text-[11px] font-mono bg-[#0C0F17] border border-[#1F2639] p-0.5 rounded-lg">
                     <button
                       onClick={() => setFilterStatus('all')}
-                      className={`px-2.5 py-1 rounded-md cursor-pointer transition ${
+                      className={`px-2.5 py-1 rounded-md cursor-pointer transition active:scale-95 ${
                         filterStatus === 'all'
                           ? 'bg-[#10B981] text-[#0C0F17] font-bold'
                           : 'text-[#94A3B8] hover:text-white'
@@ -726,7 +833,7 @@ export default function App() {
                     </button>
                     <button
                       onClick={() => setFilterStatus('failed')}
-                      className={`px-2.5 py-1 rounded-md cursor-pointer transition ${
+                      className={`px-2.5 py-1 rounded-md cursor-pointer transition active:scale-95 ${
                         filterStatus === 'failed'
                           ? 'bg-[#F87171] text-[#0C0F17] font-bold'
                           : 'text-[#94A3B8] hover:text-white'
@@ -736,7 +843,7 @@ export default function App() {
                     </button>
                     <button
                       onClick={() => setFilterStatus('passed')}
-                      className={`px-2.5 py-1 rounded-md cursor-pointer transition ${
+                      className={`px-2.5 py-1 rounded-md cursor-pointer transition active:scale-95 ${
                         filterStatus === 'passed'
                           ? 'bg-[#10B981]/20 text-[#10B981] font-bold'
                           : 'text-[#94A3B8] hover:text-white'
@@ -757,10 +864,10 @@ export default function App() {
                       <button
                         key={item.item_id}
                         onClick={() => selectItem(item.item_id)}
-                        className={`w-full text-left p-4 transition cursor-pointer flex flex-col gap-2 ${
+                        className={`w-full text-left p-4 transition-all duration-150 cursor-pointer flex flex-col gap-2 ${
                           isSelected
-                            ? 'bg-[#1A2030] border-l-4 border-l-[#10B981]'
-                            : 'hover:bg-[#1A2030]/50 border-l-4 border-l-transparent'
+                            ? 'bg-[#1A2030] border-l-4 border-l-[#10B981] shadow-inner'
+                            : 'hover:bg-[#1A2030]/50 border-l-4 border-l-transparent active:bg-[#1A2030]/30'
                         }`}
                       >
                         <div className="flex items-center justify-between gap-2">
@@ -805,7 +912,7 @@ export default function App() {
                 </div>
               </div>
 
-              {/* Right Column: Narrative Evidence Inspector (7 cols) */}
+              {/* Right Column: Signature Evidence Inspector with Interactive Tracing */}
               <div className="lg:col-span-7 space-y-6">
                 {detailLoading ? (
                   <div className="bg-[#141824] border border-[#1F2639] rounded-2xl p-12 text-center shadow-xl">
@@ -813,7 +920,7 @@ export default function App() {
                     <p className="text-sm text-[#94A3B8]">Loading diagnostic trace and retrieved evidence...</p>
                   </div>
                 ) : itemDetail ? (
-                  <div className="bg-[#141824] border border-[#1F2639] rounded-2xl shadow-xl p-6 sm:p-8 space-y-8">
+                  <div className="bg-[#141824] border border-[#1F2639] rounded-2xl shadow-xl p-6 sm:p-8 space-y-8 animate-hero-1">
                     {/* A. The Question */}
                     <div className="space-y-2 border-b border-[#1F2639] pb-6">
                       <div className="flex items-center justify-between">
@@ -829,13 +936,50 @@ export default function App() {
                       </h2>
                     </div>
 
-                    {/* B. What the AI Answered */}
-                    <div className="space-y-2">
-                      <span className="text-xs font-mono uppercase tracking-wider text-[#94A3B8] block">
-                        What the AI Answered
-                      </span>
-                      <div className="p-4 rounded-xl bg-[#0C0F17] border border-[#1F2639] text-sm text-[#F8FAFC] leading-relaxed whitespace-pre-wrap">
-                        {itemDetail.answer || <span className="text-[#64748B] italic">No answer provided</span>}
+                    {/* B. What the AI Answered with Interactive Claim Tracing */}
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-mono uppercase tracking-wider text-[#94A3B8] block">
+                          What the AI Answered
+                        </span>
+                        <span className="text-[11px] text-[#10B981] font-mono flex items-center gap-1">
+                          <Target className="w-3.5 h-3.5" />
+                          <span>Click sentences below to trace evidence</span>
+                        </span>
+                      </div>
+
+                      {/* Interactive Sentence Claim Badges */}
+                      <div className="p-4 rounded-xl bg-[#0C0F17] border border-[#1F2639] text-sm text-[#F8FAFC] leading-relaxed space-y-2">
+                        {itemDetail.claims && itemDetail.claims.length > 0 ? (
+                          itemDetail.claims.map((claim) => {
+                            const isClaimActive = activeClaimIndex === claim.sentence_index;
+                            const isSupported = claim.grounding_label === 'supported';
+
+                            return (
+                              <span
+                                key={claim.sentence_index}
+                                onClick={() => toggleClaimTrace(claim.sentence_index)}
+                                className={`inline-block mr-1.5 p-1 rounded-md transition-all duration-150 cursor-pointer ${
+                                  isClaimActive
+                                    ? isSupported
+                                      ? 'bg-[#10B981]/20 border border-[#10B981] text-white shadow-sm'
+                                      : 'bg-[#EF4444]/20 border border-[#EF4444] text-white shadow-sm'
+                                    : 'hover:bg-[#1A2030] text-[#F8FAFC]'
+                                }`}
+                                title="Click to highlight supporting passage"
+                              >
+                                <span className={`text-[10px] font-mono px-1 py-0.2 rounded mr-1.5 ${
+                                  isSupported ? 'bg-[#10B981]/25 text-[#10B981]' : 'bg-[#EF4444]/25 text-[#F87171]'
+                                }`}>
+                                  S{claim.sentence_index + 1}
+                                </span>
+                                {claim.sentence_text}{' '}
+                              </span>
+                            );
+                          })
+                        ) : (
+                          <p>{itemDetail.answer || <span className="text-[#64748B] italic">No answer provided</span>}</p>
+                        )}
                       </div>
                     </div>
 
@@ -884,11 +1028,16 @@ export default function App() {
                       })()}
                     </div>
 
-                    {/* D. What the Retrieved Evidence Actually Says */}
-                    <div className="space-y-3">
+                    {/* D. What the Retrieved Evidence Actually Says (Interactive Tracing Target) */}
+                    <div ref={evidenceSectionRef} className="space-y-3">
                       <div className="flex items-center justify-between">
-                        <span className="text-xs font-mono uppercase tracking-wider text-[#94A3B8]">
-                          What the Retrieved Evidence Actually Says
+                        <span className="text-xs font-mono uppercase tracking-wider text-[#94A3B8] flex items-center gap-2">
+                          <span>What the Retrieved Evidence Actually Says</span>
+                          {activeClaimIndex !== null && (
+                            <span className="text-[10px] text-[#10B981] bg-[#10B981]/15 px-2 py-0.5 rounded-full font-sans">
+                              Tracing Sentence S{activeClaimIndex + 1}
+                            </span>
+                          )}
                         </span>
                         <span className="text-xs text-[#64748B] font-mono">
                           {itemDetail.retrieved?.length || 0} passage{itemDetail.retrieved?.length === 1 ? '' : 's'} retrieved
@@ -897,40 +1046,60 @@ export default function App() {
 
                       <div className="space-y-3">
                         {itemDetail.retrieved && itemDetail.retrieved.length > 0 ? (
-                          itemDetail.retrieved.map((p, idx) => (
-                            <div
-                              key={p.id}
-                              className="border border-[#1F2639] rounded-xl p-4 bg-[#0C0F17] space-y-2 text-xs"
-                            >
-                              <div className="flex items-center justify-between">
-                                <div className="flex items-center gap-2">
-                                  <span className="font-mono font-bold text-[#10B981] bg-[#10B981]/15 px-2 py-0.5 rounded text-[11px]">
-                                    {p.id}
-                                  </span>
-                                  <span className="text-[11px] text-[#64748B] font-mono">Rank #{idx + 1}</span>
+                          itemDetail.retrieved.map((p, idx) => {
+                            const isLinkedToActiveClaim = activePassageId === p.id;
+                            const activeClaim = activeClaimIndex !== null ? itemDetail.claims?.[activeClaimIndex] : null;
+                            const isClaimSupported = activeClaim?.grounding_label === 'supported';
+
+                            return (
+                              <div
+                                key={p.id}
+                                onClick={() => togglePassageTrace(p.id)}
+                                className={`border rounded-xl p-4 bg-[#0C0F17] space-y-2 text-xs transition-all duration-200 cursor-pointer ${
+                                  isLinkedToActiveClaim
+                                    ? isClaimSupported
+                                      ? 'evidence-target-active'
+                                      : 'evidence-target-conflict'
+                                    : 'border-[#1F2639] hover:border-[#2A324B]'
+                                }`}
+                              >
+                                <div className="flex items-center justify-between">
+                                  <div className="flex items-center gap-2">
+                                    <span className="font-mono font-bold text-[#10B981] bg-[#10B981]/15 px-2 py-0.5 rounded text-[11px]">
+                                      {p.id}
+                                    </span>
+                                    <span className="text-[11px] text-[#64748B] font-mono">Rank #{idx + 1}</span>
+                                    {isLinkedToActiveClaim && (
+                                      <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded ${
+                                        isClaimSupported ? 'bg-[#10B981] text-[#0C0F17]' : 'bg-[#EF4444] text-[#0C0F17]'
+                                      }`}>
+                                        {isClaimSupported ? `Evidence for S${(activeClaimIndex || 0) + 1}` : `Fails to support S${(activeClaimIndex || 0) + 1}`}
+                                      </span>
+                                    )}
+                                  </div>
+                                  {p.score !== null && (
+                                    <span className="text-[11px] font-mono text-[#64748B]">
+                                      Score: {formatDecimal(p.score)}
+                                    </span>
+                                  )}
                                 </div>
-                                {p.score !== null && (
-                                  <span className="text-[11px] font-mono text-[#64748B]">
-                                    Score: {formatDecimal(p.score)}
-                                  </span>
-                                )}
+                                <p className="text-xs text-[#94A3B8] leading-relaxed">
+                                  {p.text}
+                                </p>
                               </div>
-                              <p className="text-xs text-[#94A3B8] leading-relaxed">
-                                {p.text}
-                              </p>
-                            </div>
-                          ))
+                            );
+                          })
                         ) : (
                           <p className="text-xs text-[#64748B] italic">No retrieved passages recorded.</p>
                         )}
                       </div>
                     </div>
 
-                    {/* E. Supporting Technical Details (Sentence Grounding, NLI, Advanced Metrics) */}
+                    {/* E. Supporting Technical Details */}
                     <div className="border-t border-[#1F2639] pt-4">
                       <button
                         onClick={() => setShowEvidenceTechDetails(!showEvidenceTechDetails)}
-                        className="inline-flex items-center gap-2 text-xs font-mono font-semibold text-[#10B981] hover:underline cursor-pointer"
+                        className="inline-flex items-center gap-2 text-xs font-mono font-semibold text-[#10B981] hover:underline cursor-pointer active:scale-95"
                       >
                         {showEvidenceTechDetails ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
                         <span>
@@ -941,7 +1110,7 @@ export default function App() {
                       </button>
 
                       {showEvidenceTechDetails && (
-                        <div className="mt-4 space-y-6">
+                        <div className="mt-4 space-y-6 animate-hero-1">
                           {/* Sentence Breakdown */}
                           <div className="space-y-3">
                             <span className="text-xs font-mono uppercase text-[#64748B] block">
@@ -1115,10 +1284,10 @@ export default function App() {
       {/* ── How It Works Modal ── */}
       {showHowItWorks && (
         <div className="fixed inset-0 bg-[#0C0F17]/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="bg-[#141824] border border-[#1F2639] rounded-2xl max-w-2xl w-full p-6 sm:p-8 space-y-6 shadow-2xl relative max-h-[90vh] overflow-y-auto">
+          <div className="bg-[#141824] border border-[#1F2639] rounded-2xl max-w-2xl w-full p-6 sm:p-8 space-y-6 shadow-2xl relative max-h-[90vh] overflow-y-auto animate-card-1">
             <button
               onClick={() => setShowHowItWorks(false)}
-              className="absolute top-6 right-6 text-[#94A3B8] hover:text-white cursor-pointer"
+              className="absolute top-6 right-6 text-[#94A3B8] hover:text-white cursor-pointer active:scale-90"
             >
               <X className="w-5 h-5" />
             </button>
@@ -1170,7 +1339,7 @@ export default function App() {
             <div className="pt-2 flex justify-end">
               <button
                 onClick={() => setShowHowItWorks(false)}
-                className="bg-[#10B981] text-[#0C0F17] text-xs font-semibold px-4 py-2 rounded-lg hover:bg-[#059669] transition cursor-pointer"
+                className="bg-[#10B981] text-[#0C0F17] text-xs font-semibold px-4 py-2 rounded-lg hover:bg-[#059669] transition cursor-pointer active:scale-95"
               >
                 Close Guide
               </button>

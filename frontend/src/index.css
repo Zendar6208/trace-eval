@@ -45,3 +45,122 @@
     }
   }
 }
+
+/* ── Motion & Animation System ── */
+@keyframes hero-line-in {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes hero-emphasis-glow {
+  0%, 100% {
+    text-shadow: 0 0 0 rgba(248, 113, 113, 0);
+  }
+  50% {
+    text-shadow: 0 0 12px rgba(248, 113, 113, 0.35);
+  }
+}
+
+@keyframes card-reveal {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes pulse-subtle {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.45;
+  }
+}
+
+@keyframes evidence-pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.5);
+  }
+  70% {
+    box-shadow: 0 0 0 8px rgba(16, 185, 129, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0);
+  }
+}
+
+@keyframes error-pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.5);
+  }
+  70% {
+    box-shadow: 0 0 0 8px rgba(239, 68, 68, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0);
+  }
+}
+
+.animate-hero-1 {
+  animation: hero-line-in 350ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-hero-2 {
+  opacity: 0;
+  animation: hero-line-in 350ms cubic-bezier(0.16, 1, 0.3, 1) 120ms forwards;
+}
+
+.animate-hero-3 {
+  opacity: 0;
+  animation: hero-line-in 350ms cubic-bezier(0.16, 1, 0.3, 1) 240ms forwards;
+}
+
+.animate-card-1 {
+  opacity: 0;
+  animation: card-reveal 300ms cubic-bezier(0.16, 1, 0.3, 1) 60ms forwards;
+}
+
+.animate-card-2 {
+  opacity: 0;
+  animation: card-reveal 300ms cubic-bezier(0.16, 1, 0.3, 1) 120ms forwards;
+}
+
+.animate-card-3 {
+  opacity: 0;
+  animation: card-reveal 300ms cubic-bezier(0.16, 1, 0.3, 1) 180ms forwards;
+}
+
+.animate-card-4 {
+  opacity: 0;
+  animation: card-reveal 300ms cubic-bezier(0.16, 1, 0.3, 1) 240ms forwards;
+}
+
+.emphasis-glitch {
+  display: inline-block;
+  color: #F87171;
+  border-bottom: 2px solid rgba(248, 113, 113, 0.6);
+  padding-bottom: 2px;
+  animation: hero-emphasis-glow 3s ease-in-out infinite;
+}
+
+.evidence-target-active {
+  border-color: #10B981 !important;
+  background-color: rgba(16, 185, 129, 0.08) !important;
+  animation: evidence-pulse 2s infinite;
+}
+
+.evidence-target-conflict {
+  border-color: #EF4444 !important;
+  background-color: rgba(239, 68, 68, 0.08) !important;
+  animation: error-pulse 2s infinite;
+}

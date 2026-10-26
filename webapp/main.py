@@ -19,8 +19,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field, ValidationError
 
 from trace_eval.evaluator import evaluate_run
+from trace_eval.nli import NLIEvaluator
 from trace_eval.schema.dataset import Dataset
-from trace_eval.schema.run import RunConfig, RunResult, RunThresholds
+from trace_eval.schema.run import NLIModelConfig, RunConfig, RunResult, RunThresholds
 from trace_eval.schema.submission import Submission
 from trace_eval.validation import validate_submission_against_dataset
 
@@ -46,6 +47,24 @@ app.add_middleware(
 _last_run: RunResult | None = None
 _dataset: Dataset | None = None
 _submission: Submission | None = None
+_nli_evaluator: NLIEvaluator | None = None
+
+
+def get_nli_evaluator() -> NLIEvaluator | None:
+    """Lazy-load local NLI evaluator singleton for Tier 1 inference."""
+    global _nli_evaluator
+    if _nli_evaluator is None:
+        try:
+            _nli_evaluator = NLIEvaluator(
+                model_name="cross-encoder/nli-distilroberta-base",
+                revision="b14d131f9d32668a5e6a982729b57ff6ed5dfcbd",
+                device="cpu",
+                local_files_only=True,
+            )
+        except Exception as e:
+            print(f"Warning: NLI model failed to load locally: {e}")
+            _nli_evaluator = None
+    return _nli_evaluator
 
 
 def _load_sample_data() -> tuple[Dataset, Submission]:
@@ -240,20 +259,34 @@ async def get_sample_submission():
 
 @app.post("/api/evaluate/sample")
 async def run_sample_evaluation():
-    """Run deterministic Tier-0 evaluation on the bundled sample dataset."""
+    """Run real Tier-1 (hybrid deterministic + NLI) evaluation on the bundled sample dataset."""
     global _last_run, _dataset, _submission
 
     dataset, submission = _load_sample_data()
+    nli = get_nli_evaluator()
+    nli_cfg = (
+        NLIModelConfig(
+            model_name="cross-encoder/nli-distilroberta-base",
+            revision="b14d131f9d32668a5e6a982729b57ff6ed5dfcbd",
+            device="cpu",
+        )
+        if nli
+        else None
+    )
+
     config = RunConfig(
         thresholds=RunThresholds(entail=0.8, contradict=0.7),
         require_citations=True,
         citation_style="id",
         phantom_mode="bracket",
+        nli_model=nli_cfg,
     )
 
     try:
-        run_result = evaluate_run(dataset, submission, config=config)
+        run_result = evaluate_run(dataset, submission, config=config, nli_evaluator=nli)
         _last_run = run_result
+        _dataset = dataset
+        _submission = submission
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Evaluation failed: {e}") from e
 
@@ -301,17 +334,31 @@ async def run_upload_evaluation(req: UploadEvaluationRequest):
             detail=f"Cross-document validation failed: {'; '.join(cross_errors[:5])}",
         )
 
-    # 4. Configure evaluation
+    # 4. Configure evaluation with NLI if available
+    nli = get_nli_evaluator()
+    nli_cfg = (
+        NLIModelConfig(
+            model_name="cross-encoder/nli-distilroberta-base",
+            revision="b14d131f9d32668a5e6a982729b57ff6ed5dfcbd",
+            device="cpu",
+        )
+        if nli
+        else None
+    )
+
     config = RunConfig(
         thresholds=RunThresholds(entail=0.8, contradict=0.7),
         require_citations=req.require_citations,
         citation_style=req.citation_style,
         phantom_mode=req.phantom_mode,
+        nli_model=nli_cfg,
     )
 
     # 5. Run evaluation
     try:
-        run_result = evaluate_run(parsed_dataset, parsed_submission, config=config)
+        run_result = evaluate_run(
+            parsed_dataset, parsed_submission, config=config, nli_evaluator=nli
+        )
         _last_run = run_result
         _dataset = parsed_dataset
         _submission = parsed_submission
