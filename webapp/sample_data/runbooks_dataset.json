@@ -1,0 +1,118 @@
+{
+  "schema_version": "trace.dataset/1.0",
+  "dataset_id": "cloud-incident-runbooks-v1",
+  "name": "Cloud Infrastructure Incident Runbooks",
+  "description": "Verified SRE incident remediation procedures for database connection saturation, cache memory watermarks, and TLS certificate renewal.",
+  "language": "en",
+  "license": "CC-BY-4.0",
+  "corpus": [
+    {
+      "id": "rb01",
+      "title": "PostgreSQL Connection Pool Saturation",
+      "text": "When active PostgreSQL connections reach 100, the pool is saturated. Engineers must immediately restart pgbouncer using systemctl restart pgbouncer. Terminate lingering idle connections using pg_terminate_backend with a 60 second timeout."
+    },
+    {
+      "id": "rb02",
+      "title": "Redis Memory High Watermark & Eviction",
+      "text": "When Redis memory usage exceeds 90 percent of allocated RAM, verify the cache eviction policy is set to allkeys-lru. Never issue FLUSHALL on production clusters without authorization from the Incident Commander."
+    },
+    {
+      "id": "rb03",
+      "title": "TLS Certificate Auto-Renewal & Reload",
+      "text": "Certificates are renewed 30 days prior to expiration. After certbot completes, execute nginx -s reload to reload SSL certificates with zero dropped TCP connections. Do not restart the nginx service directly during high traffic windows."
+    },
+    {
+      "id": "rb04",
+      "title": "Kubernetes OOMKilled Pod Diagnostics",
+      "text": "Pods terminating with Exit Code 137 are OOMKilled by the Linux kernel. Before increasing memory limits in deployment specs, capture a heap dump using jcmd or inspect container cgroup memory.max limits."
+    },
+    {
+      "id": "rb05",
+      "title": "Kafka Consumer Lag Remediation",
+      "text": "Consumer lag exceeding 10,000 messages triggers a P2 warning alert. Scale consumer replicas to match partition count. Ensure partition reassignment does not trigger rebalance storms during peak throughput."
+    },
+    {
+      "id": "rb06",
+      "title": "SRE Incident Escalation Matrix",
+      "text": "P1 critical outages require a 15 minute primary on-call response SLA. If the primary on-call does not acknowledge the pager within 5 minutes, escalate to the secondary engineer on the emergency bridge."
+    }
+  ],
+  "items": [
+    {
+      "id": "q01",
+      "group_id": "postgres-remediation",
+      "split": "test",
+      "question": "What should an engineer do when PostgreSQL active connections reach 100?",
+      "unanswerable": false,
+      "gold_passage_ids": ["rb01"],
+      "gold_passage_relevance": [{"passage_id": "rb01", "relevance": 3}],
+      "reference_answers": ["Restart pgbouncer and terminate idle connections with 60 second timeout"],
+      "required_facts": [
+        {"fact_id": "f1", "text": "restart pgbouncer"},
+        {"fact_id": "f2", "text": "60 second timeout", "is_numeric": true}
+      ]
+    },
+    {
+      "id": "q02",
+      "group_id": "redis-eviction",
+      "split": "test",
+      "question": "What eviction policy must be set when Redis memory exceeds 90 percent?",
+      "unanswerable": false,
+      "gold_passage_ids": ["rb02"],
+      "gold_passage_relevance": [{"passage_id": "rb02", "relevance": 3}],
+      "reference_answers": ["allkeys-lru eviction policy"],
+      "required_facts": [
+        {"fact_id": "f1", "text": "allkeys-lru"}
+      ]
+    },
+    {
+      "id": "q03",
+      "group_id": "tls-reload",
+      "split": "test",
+      "question": "How should nginx be reloaded after certificate renewal to avoid dropped traffic?",
+      "unanswerable": false,
+      "gold_passage_ids": ["rb03"],
+      "gold_passage_relevance": [{"passage_id": "rb03", "relevance": 3}],
+      "reference_answers": ["Execute nginx -s reload for zero dropped TCP connections"],
+      "required_facts": [
+        {"fact_id": "f1", "text": "nginx -s reload"}
+      ]
+    },
+    {
+      "id": "q04",
+      "group_id": "sre-sla",
+      "split": "test",
+      "question": "What is the response SLA for P1 critical outages?",
+      "unanswerable": false,
+      "gold_passage_ids": ["rb06"],
+      "gold_passage_relevance": [{"passage_id": "rb06", "relevance": 3}],
+      "reference_answers": ["15 minute primary on-call response SLA"],
+      "required_facts": [
+        {"fact_id": "f1", "text": "15 minute", "is_numeric": true}
+      ]
+    },
+    {
+      "id": "q05",
+      "group_id": "k8s-oom",
+      "split": "test",
+      "question": "What command is used to capture a heap dump before increasing pod memory limits?",
+      "unanswerable": false,
+      "gold_passage_ids": ["rb04"],
+      "gold_passage_relevance": [{"passage_id": "rb04", "relevance": 3}],
+      "reference_answers": ["Use jcmd to capture a heap dump"],
+      "required_facts": [
+        {"fact_id": "f1", "text": "jcmd"}
+      ]
+    },
+    {
+      "id": "q06",
+      "group_id": "unanswerable-edge",
+      "split": "test",
+      "question": "What is the escalation procedure for multi-region quantum key distribution failure?",
+      "unanswerable": true,
+      "gold_passage_ids": [],
+      "reference_answers": [],
+      "required_facts": []
+    }
+  ]
+}

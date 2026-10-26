@@ -77,6 +77,63 @@ def get_nli_evaluator() -> NLIEvaluator | None:
     return _nli_evaluator
 
 
+# ── Benchmarks Registry ────────────────────────────────────────────────────────
+BENCHMARKS = [
+    {
+        "id": "hariom-refund-demo-v1",
+        "name": "Customer Support & Refund Policies",
+        "category": "Enterprise Policy",
+        "badge": "2 Pipelines Available",
+        "description": "Enterprise customer service policy benchmark evaluating tiered refund conditions, numeric timelines, return shipping exceptions, and unanswerable edge queries.",
+        "item_count": 6,
+        "corpus_size": 6,
+        "license": "CC-BY-4.0",
+        "has_comparison": True,
+        "dataset_file": "dataset.json",
+        "pipeline_a": {
+            "id": "baseline",
+            "name": "Dense + BM25 Baseline RAG",
+            "version": "1.0.0",
+            "model": "gemini-1.5-flash",
+            "retriever": "bm25-dense-hybrid",
+            "description": "Standard hybrid retrieval pipeline. Prone to phantom citation hallucination [p99] and ungrounded policy guarantees on edge queries.",
+            "file": "submission.json",
+        },
+        "pipeline_b": {
+            "id": "grounded",
+            "name": "Grounded Cross-Encoder RAG",
+            "version": "2.0.0",
+            "model": "gemini-1.5-pro",
+            "retriever": "colbert-v2-dense-rerank",
+            "description": "Calibrated pipeline with cross-encoder re-ranking and NLI citation verification. Achieves 100% precision and safe refusal.",
+            "file": "submission_b.json",
+        },
+    },
+    {
+        "id": "cloud-incident-runbooks-v1",
+        "name": "Cloud Infrastructure Incident Runbooks",
+        "category": "DevOps & SRE",
+        "badge": "Standard Benchmark",
+        "description": "Mission-critical incident response benchmark testing PostgreSQL connection pool saturation, Redis LRU memory limits, TLS zero-downtime certificate reloads, and OOMKilled pods.",
+        "item_count": 6,
+        "corpus_size": 6,
+        "license": "CC-BY-4.0",
+        "has_comparison": False,
+        "dataset_file": "runbooks_dataset.json",
+        "pipeline_a": {
+            "id": "incident_assistant",
+            "name": "DevOps Incident Assistant",
+            "version": "1.2.0",
+            "model": "llama-3-70b-instruct",
+            "retriever": "opensearch-bm25",
+            "description": "OpenSearch BM25 retriever + Llama-3-70b-instruct reader with verified runbook command retrieval.",
+            "file": "runbooks_submission.json",
+        },
+        "pipeline_b": None,
+    },
+]
+
+
 def _load_sample_data() -> tuple[Dataset, Submission]:
     global _dataset, _submission
     if _dataset is None:
@@ -92,6 +149,29 @@ def _load_sample_data() -> tuple[Dataset, Submission]:
 class UploadEvaluationRequest(BaseModel):
     dataset: dict[str, Any] = Field(..., description="trace.dataset/1.0 JSON")
     submission: dict[str, Any] = Field(..., description="trace.submission/1.0 JSON")
+    require_citations: bool = Field(default=True, description="Whether citations are evaluated")
+    citation_style: Literal["id", "index"] = Field(
+        default="id", description="Citation marker style"
+    )
+    phantom_mode: Literal["bracket", "known_only"] = Field(
+        default="bracket", description="Phantom citation detection mode"
+    )
+
+
+class CompareEvaluationRequest(BaseModel):
+    benchmark_id: str | None = Field(
+        default=None,
+        description="Benchmark ID if comparing pre-configured benchmark pipelines",
+    )
+    dataset: dict[str, Any] | None = Field(
+        default=None, description="trace.dataset/1.0 JSON (if custom)"
+    )
+    submission_a: dict[str, Any] | None = Field(
+        default=None, description="First trace.submission/1.0 JSON"
+    )
+    submission_b: dict[str, Any] | None = Field(
+        default=None, description="Second trace.submission/1.0 JSON"
+    )
     require_citations: bool = Field(default=True, description="Whether citations are evaluated")
     citation_style: Literal["id", "index"] = Field(
         default="id", description="Citation marker style"
@@ -240,6 +320,194 @@ def _format_run_response(run_result: RunResult, dataset: Dataset | None = None) 
     }
 
 
+def _build_comparison_response(
+    res_a: RunResult,
+    res_b: RunResult,
+    dataset: Dataset,
+    sub_a: Submission,
+    sub_b: Submission,
+) -> dict:
+    fmt_a = _format_run_response(res_a, dataset)
+    fmt_b = _format_run_response(res_b, dataset)
+
+    comb_a = fmt_a["summary"]["combined"] or {}
+    comb_b = fmt_b["summary"]["combined"] or {}
+
+    def _hit5(items):
+        valid = [
+            i
+            for i in items
+            if i.get("retrieval") and i["retrieval"].get("hit_at_k", {}).get("5") is not None
+        ]
+        return sum(i["retrieval"]["hit_at_k"]["5"] for i in valid) / (len(valid) or 1)
+
+    def _rec5(items):
+        valid = [
+            i
+            for i in items
+            if i.get("retrieval") and i["retrieval"].get("recall_at_k", {}).get("5") is not None
+        ]
+        return sum(i["retrieval"]["recall_at_k"]["5"] for i in valid) / (len(valid) or 1)
+
+    hit_a, hit_b = _hit5(fmt_a["items"]), _hit5(fmt_b["items"])
+    rec_a, rec_b = _rec5(fmt_a["items"]), _rec5(fmt_b["items"])
+
+    supp_a = (
+        1.0 - (comb_a.get("mean_unsupported_claim_rate") or 0.0)
+        if comb_a.get("mean_unsupported_claim_rate") is not None
+        else None
+    )
+    supp_b = (
+        1.0 - (comb_b.get("mean_unsupported_claim_rate") or 0.0)
+        if comb_b.get("mean_unsupported_claim_rate") is not None
+        else None
+    )
+
+    pass_a = sum(1 for i in res_a.items if not [f for f in i.failure_types if f and f != "PASS"])
+    pass_b = sum(1 for i in res_b.items if not [f for f in i.failure_types if f and f != "PASS"])
+
+    metrics_a = {
+        "retrieval_hit": hit_a,
+        "retrieval_recall": rec_a,
+        "fact_recall": comb_a.get("mean_fact_recall"),
+        "token_f1": comb_a.get("mean_token_f1"),
+        "citation_precision": comb_a.get("mean_citation_precision"),
+        "phantom_rate": comb_a.get("mean_phantom_rate"),
+        "supported_claims": supp_a,
+        "unsupported_claims": comb_a.get("mean_unsupported_claim_rate"),
+        "pass_count": pass_a,
+        "fail_count": len(res_a.items) - pass_a,
+    }
+
+    metrics_b = {
+        "retrieval_hit": hit_b,
+        "retrieval_recall": rec_b,
+        "fact_recall": comb_b.get("mean_fact_recall"),
+        "token_f1": comb_b.get("mean_token_f1"),
+        "citation_precision": comb_b.get("mean_citation_precision"),
+        "phantom_rate": comb_b.get("mean_phantom_rate"),
+        "supported_claims": supp_b,
+        "unsupported_claims": comb_b.get("mean_unsupported_claim_rate"),
+        "pass_count": pass_b,
+        "fail_count": len(res_b.items) - pass_b,
+    }
+
+    deltas = {
+        "retrieval_hit_delta": (hit_b - hit_a) if hit_b is not None and hit_a is not None else 0.0,
+        "fact_recall_delta": (
+            (metrics_b["fact_recall"] or 0.0) - (metrics_a["fact_recall"] or 0.0)
+        ),
+        "token_f1_delta": ((metrics_b["token_f1"] or 0.0) - (metrics_a["token_f1"] or 0.0)),
+        "citation_precision_delta": (
+            (metrics_b["citation_precision"] or 0.0) - (metrics_a["citation_precision"] or 0.0)
+        ),
+        "phantom_rate_delta": (
+            (metrics_b["phantom_rate"] or 0.0) - (metrics_a["phantom_rate"] or 0.0)
+        ),
+        "supported_claims_delta": (
+            ((supp_b or 0.0) - (supp_a or 0.0))
+            if supp_a is not None and supp_b is not None
+            else 0.0
+        ),
+        "pass_count_delta": pass_b - pass_a,
+    }
+
+    question_map = {item.id: item.question for item in dataset.items}
+    out_map_a = {o.item_id: o.answer for o in sub_a.outputs}
+    out_map_b = {o.item_id: o.answer for o in sub_b.outputs}
+    item_map_a = {i.item_id: i for i in res_a.items}
+    item_map_b = {i.item_id: i for i in res_b.items}
+
+    question_comparisons = []
+    for item in dataset.items:
+        it_a = item_map_a.get(item.id)
+        it_b = item_map_b.get(item.id)
+        if not it_a or not it_b:
+            continue
+
+        fails_a = [f for f in it_a.failure_types if f and f != "PASS"]
+        fails_b = [f for f in it_b.failure_types if f and f != "PASS"]
+        status_a = "PASS" if not fails_a else "FAIL"
+        status_b = "PASS" if not fails_b else "FAIL"
+
+        if status_a == "FAIL" and status_b == "PASS":
+            verdict = "b_improved"
+            summary = f"System B fixed {len(fails_a)} issue(s): eliminated {', '.join(fails_a)}."
+        elif status_a == "PASS" and status_b == "FAIL":
+            verdict = "a_better"
+            summary = f"System A performed better: System B introduced {', '.join(fails_b)}."
+        elif status_a == "PASS" and status_b == "PASS":
+            verdict = "both_passed"
+            summary = "Both systems generated accurate, verified, and well-cited responses."
+        else:
+            if len(fails_b) < len(fails_a):
+                verdict = "b_improved"
+                summary = f"System B had fewer issues ({len(fails_b)} vs {len(fails_a)})."
+            elif len(fails_a) < len(fails_b):
+                verdict = "a_better"
+                summary = f"System A had fewer issues ({len(fails_a)} vs {len(fails_b)})."
+            else:
+                verdict = "both_failed"
+                summary = f"Both systems encountered issues: System A ({', '.join(fails_a)}), System B ({', '.join(fails_b)})."
+
+        question_comparisons.append(
+            {
+                "item_id": item.id,
+                "question": question_map.get(item.id, item.id),
+                "verdict": verdict,
+                "summary": summary,
+                "run_a": {
+                    "answer": out_map_a.get(item.id, ""),
+                    "status": status_a,
+                    "failure_types": fails_a,
+                    "issues_count": len(fails_a),
+                    "citation_precision": it_a.metrics.citation.citation_precision
+                    if it_a.metrics.citation
+                    else None,
+                },
+                "run_b": {
+                    "answer": out_map_b.get(item.id, ""),
+                    "status": status_b,
+                    "failure_types": fails_b,
+                    "issues_count": len(fails_b),
+                    "citation_precision": it_b.metrics.citation.citation_precision
+                    if it_b.metrics.citation
+                    else None,
+                },
+            }
+        )
+
+    return {
+        "dataset": {
+            "dataset_id": dataset.dataset_id,
+            "name": dataset.name,
+            "item_count": len(dataset.items),
+        },
+        "system_a": {
+            "name": sub_a.system.name,
+            "version": sub_a.system.version,
+            "pipeline": sub_a.system.provenance.pipeline_description
+            if sub_a.system.provenance
+            else "",
+            "run_id": res_a.run_id,
+            "result_hash": res_a.result_hash,
+            "metrics": metrics_a,
+        },
+        "system_b": {
+            "name": sub_b.system.name,
+            "version": sub_b.system.version,
+            "pipeline": sub_b.system.provenance.pipeline_description
+            if sub_b.system.provenance
+            else "",
+            "run_id": res_b.run_id,
+            "result_hash": res_b.result_hash,
+            "metrics": metrics_b,
+        },
+        "deltas": deltas,
+        "questions": question_comparisons,
+    }
+
+
 # ── Routes ─────────────────────────────────────────────────────────────────────
 
 
@@ -267,6 +535,59 @@ async def get_sample_dataset():
 async def get_sample_submission():
     """Return the raw sample submission JSON."""
     with open(SAMPLE_DATA_DIR / "submission.json", encoding="utf-8") as f:
+        return json.load(f)
+
+
+@app.get("/api/sample/submission_b")
+async def get_sample_submission_b():
+    """Return the raw sample submission B (grounded pipeline) JSON."""
+    with open(SAMPLE_DATA_DIR / "submission_b.json", encoding="utf-8") as f:
+        return json.load(f)
+
+
+@app.get("/api/benchmarks")
+async def list_benchmarks():
+    """Return available pre-configured evaluation benchmarks."""
+    return BENCHMARKS
+
+
+@app.get("/api/benchmarks/{benchmark_id}")
+async def get_benchmark(benchmark_id: str):
+    """Get metadata for a specific benchmark."""
+    bm = next((b for b in BENCHMARKS if b["id"] == benchmark_id), None)
+    if not bm:
+        raise HTTPException(status_code=404, detail=f"Benchmark '{benchmark_id}' not found")
+    return bm
+
+
+@app.get("/api/benchmark/{benchmark_id}/dataset")
+async def get_benchmark_dataset(benchmark_id: str):
+    """Return the raw dataset JSON for a benchmark."""
+    bm = next((b for b in BENCHMARKS if b["id"] == benchmark_id), None)
+    if not bm:
+        raise HTTPException(status_code=404, detail=f"Benchmark '{benchmark_id}' not found")
+    file_path = SAMPLE_DATA_DIR / bm["dataset_file"]
+    with open(file_path, encoding="utf-8") as f:
+        return json.load(f)
+
+
+@app.get("/api/benchmark/{benchmark_id}/submission/{pipeline_id}")
+async def get_benchmark_submission(benchmark_id: str, pipeline_id: str):
+    """Return the raw submission JSON for a benchmark pipeline ('a' or 'b')."""
+    bm = next((b for b in BENCHMARKS if b["id"] == benchmark_id), None)
+    if not bm:
+        raise HTTPException(status_code=404, detail=f"Benchmark '{benchmark_id}' not found")
+
+    if pipeline_id.lower() in ("b", "grounded"):
+        if not bm.get("pipeline_b"):
+            raise HTTPException(
+                status_code=404, detail="Pipeline B not available for this benchmark"
+            )
+        file_path = SAMPLE_DATA_DIR / bm["pipeline_b"]["file"]
+    else:
+        file_path = SAMPLE_DATA_DIR / bm["pipeline_a"]["file"]
+
+    with open(file_path, encoding="utf-8") as f:
         return json.load(f)
 
 
@@ -403,6 +724,190 @@ async def get_item_detail(item_id: str):
         raise HTTPException(status_code=404, detail=f"Item '{item_id}' not found in current run")
 
     return _item_evidence(item, dataset, submission)
+
+
+@app.post("/api/evaluate/benchmark/{benchmark_id}")
+async def run_benchmark_evaluation(benchmark_id: str, pipeline: str = "a"):
+    """Evaluate a pre-configured benchmark with its designated pipeline ('a' or 'b')."""
+    global _last_run, _dataset, _submission
+
+    bm = next((b for b in BENCHMARKS if b["id"] == benchmark_id), None)
+    if not bm:
+        raise HTTPException(status_code=404, detail=f"Benchmark '{benchmark_id}' not found")
+
+    with open(SAMPLE_DATA_DIR / bm["dataset_file"], encoding="utf-8") as f:
+        dataset = Dataset.model_validate(json.load(f))
+
+    if pipeline.lower() in ("b", "grounded"):
+        if not bm.get("pipeline_b"):
+            raise HTTPException(
+                status_code=400,
+                detail=f"Benchmark '{benchmark_id}' does not have a pipeline B configured",
+            )
+        sub_file = bm["pipeline_b"]["file"]
+    else:
+        sub_file = bm["pipeline_a"]["file"]
+
+    with open(SAMPLE_DATA_DIR / sub_file, encoding="utf-8") as f:
+        submission = Submission.model_validate(json.load(f))
+
+    nli = get_nli_evaluator()
+    nli_cfg = (
+        NLIModelConfig(
+            model_name="cross-encoder/nli-distilroberta-base",
+            revision="b14d131f9d32668a5e6a982729b57ff6ed5dfcbd",
+            device="cpu",
+        )
+        if nli
+        else None
+    )
+
+    config = RunConfig(
+        thresholds=RunThresholds(entail=0.8, contradict=0.7),
+        require_citations=True,
+        citation_style="id",
+        phantom_mode="bracket",
+        nli_model=nli_cfg,
+    )
+
+    try:
+        run_result = evaluate_run(dataset, submission, config=config, nli_evaluator=nli)
+        _last_run = run_result
+        _dataset = dataset
+        _submission = submission
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Evaluation failed: {e}") from e
+
+    return _format_run_response(run_result, dataset)
+
+
+@app.post("/api/evaluate/compare")
+async def run_comparison_evaluation(req: CompareEvaluationRequest):
+    """Run side-by-side evaluation and comparison between two RAG submissions on the same dataset."""
+    global _last_run, _dataset, _submission
+
+    if req.benchmark_id:
+        bm = next((b for b in BENCHMARKS if b["id"] == req.benchmark_id), None)
+        if not bm:
+            raise HTTPException(status_code=404, detail=f"Benchmark '{req.benchmark_id}' not found")
+        if not bm.get("pipeline_b"):
+            raise HTTPException(
+                status_code=400,
+                detail=f"Benchmark '{req.benchmark_id}' does not have two pipelines for comparison",
+            )
+
+        with open(SAMPLE_DATA_DIR / bm["dataset_file"], encoding="utf-8") as f:
+            dataset = Dataset.model_validate(json.load(f))
+        with open(SAMPLE_DATA_DIR / bm["pipeline_a"]["file"], encoding="utf-8") as f:
+            submission_a = Submission.model_validate(json.load(f))
+        with open(SAMPLE_DATA_DIR / bm["pipeline_b"]["file"], encoding="utf-8") as f:
+            submission_b = Submission.model_validate(json.load(f))
+    else:
+        if not req.dataset or not req.submission_a or not req.submission_b:
+            raise HTTPException(
+                status_code=400,
+                detail="Custom comparison requires 'dataset', 'submission_a', and 'submission_b'.",
+            )
+
+        # Validate Dataset
+        try:
+            dataset = Dataset.model_validate(req.dataset)
+        except ValidationError as e:
+            err_msgs = [
+                f"Dataset error at '{'.'.join(str(x) for x in err['loc'])}': {err['msg']}"
+                for err in e.errors()[:5]
+            ]
+            raise HTTPException(
+                status_code=400, detail=f"Invalid dataset schema: {'; '.join(err_msgs)}"
+            ) from e
+
+        # Validate Submission A
+        try:
+            submission_a = Submission.model_validate(req.submission_a)
+        except ValidationError as e:
+            err_msgs = [
+                f"Submission A error at '{'.'.join(str(x) for x in err['loc'])}': {err['msg']}"
+                for err in e.errors()[:5]
+            ]
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid Submission A schema: {'; '.join(err_msgs)}",
+            ) from e
+
+        # Validate Submission B
+        try:
+            submission_b = Submission.model_validate(req.submission_b)
+        except ValidationError as e:
+            err_msgs = [
+                f"Submission B error at '{'.'.join(str(x) for x in err['loc'])}': {err['msg']}"
+                for err in e.errors()[:5]
+            ]
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid Submission B schema: {'; '.join(err_msgs)}",
+            ) from e
+
+        # Validate cross-document consistency
+        cross_a = validate_submission_against_dataset(dataset, submission_a)
+        if cross_a:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Submission A cross-validation failed: {'; '.join(cross_a[:5])}",
+            )
+
+        cross_b = validate_submission_against_dataset(dataset, submission_b)
+        if cross_b:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Submission B cross-validation failed: {'; '.join(cross_b[:5])}",
+            )
+
+        # Check item compatibility between A and B
+        items_a = {o.item_id for o in submission_a.outputs}
+        items_b = {o.item_id for o in submission_b.outputs}
+        if items_a != items_b:
+            diff_a = items_a - items_b
+            diff_b = items_b - items_a
+            detail = (
+                f"Dataset incompatibility between submissions: "
+                f"Submission A has items {sorted(items_a)}, but Submission B has items {sorted(items_b)}. "
+            )
+            if diff_a:
+                detail += f"Missing in B: {sorted(diff_a)}. "
+            if diff_b:
+                detail += f"Missing in A: {sorted(diff_b)}. "
+            detail += "Both submissions must evaluate the exact same questions to compare."
+            raise HTTPException(status_code=400, detail=detail)
+
+    nli = get_nli_evaluator()
+    nli_cfg = (
+        NLIModelConfig(
+            model_name="cross-encoder/nli-distilroberta-base",
+            revision="b14d131f9d32668a5e6a982729b57ff6ed5dfcbd",
+            device="cpu",
+        )
+        if nli
+        else None
+    )
+
+    config = RunConfig(
+        thresholds=RunThresholds(entail=0.8, contradict=0.7),
+        require_citations=req.require_citations,
+        citation_style=req.citation_style,
+        phantom_mode=req.phantom_mode,
+        nli_model=nli_cfg,
+    )
+
+    try:
+        res_a = evaluate_run(dataset, submission_a, config=config, nli_evaluator=nli)
+        res_b = evaluate_run(dataset, submission_b, config=config, nli_evaluator=nli)
+        _last_run = res_a
+        _dataset = dataset
+        _submission = submission_a
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Comparison evaluation failed: {e}") from e
+
+    return _build_comparison_response(res_a, res_b, dataset, submission_a, submission_b)
 
 
 @app.get("/api/nli/status")

@@ -1,0 +1,75 @@
+{
+  "schema_version": "trace.submission/1.0",
+  "dataset_id": "hariom-refund-demo-v1",
+  "system": {
+    "name": "HariOm Grounded Cross-Encoder RAG",
+    "version": "2.0.0",
+    "provenance": {
+      "pipeline_description": "Dense retriever + Cross-encoder Re-ranker + Calibrated NLI Verifier",
+      "model_name": "gemini-1.5-pro",
+      "retriever_name": "colbert-v2-dense-rerank",
+      "run_timestamp": "2026-10-26T11:30:00Z"
+    }
+  },
+  "outputs": [
+    {
+      "item_id": "q01",
+      "origin": "recorded_system",
+      "answer": "All refund requests are processed within 30 business days of receipt through the official portal.[p01]",
+      "retrieved": [
+        {"id": "p01", "score": 0.98},
+        {"id": "p04", "score": 0.65},
+        {"id": "p02", "score": 0.55}
+      ]
+    },
+    {
+      "item_id": "q02",
+      "origin": "recorded_system",
+      "answer": "To qualify for a refund, your purchase must be within the last 90 days.[p02] The item must be in original condition and packaging.[p02] Note that digital products are non-refundable once downloaded.[p02]",
+      "retrieved": [
+        {"id": "p02", "score": 0.97},
+        {"id": "p01", "score": 0.60},
+        {"id": "p05", "score": 0.45}
+      ]
+    },
+    {
+      "item_id": "q03",
+      "origin": "recorded_system",
+      "answer": "Customers are responsible for return shipping costs for non-defective items.[p03] If the item is defective, HariOm provides a prepaid return shipping label.[p03]",
+      "retrieved": [
+        {"id": "p03", "score": 0.96},
+        {"id": "p06", "score": 0.50},
+        {"id": "p01", "score": 0.40}
+      ]
+    },
+    {
+      "item_id": "q04",
+      "origin": "recorded_system",
+      "answer": "Refunds are issued to the original payment method.[p04] Credit card refunds take 5-10 additional business days to appear on statements after processing.[p04]",
+      "retrieved": [
+        {"id": "p04", "score": 0.97},
+        {"id": "p01", "score": 0.58},
+        {"id": "p03", "score": 0.35}
+      ]
+    },
+    {
+      "item_id": "q05",
+      "origin": "recorded_system",
+      "answer": "All refund requests are processed within 30 business days of receipt.[p01]",
+      "retrieved": [
+        {"id": "p01", "score": 0.96},
+        {"id": "p04", "score": 0.62},
+        {"id": "p02", "score": 0.51}
+      ]
+    },
+    {
+      "item_id": "q06",
+      "origin": "recorded_system",
+      "answer": "The documentation does not contain any policy regarding cryptocurrency refunds.",
+      "retrieved": [
+        {"id": "p06", "score": 0.32},
+        {"id": "p02", "score": 0.28}
+      ]
+    }
+  ]
+}

@@ -82,3 +82,93 @@ export interface ItemDetailResponse extends EvaluationItemSummary {
   claims: ClaimEvidence[];
   citations: CitationEvidence[];
 }
+
+export interface PipelineInfo {
+  id: string;
+  name: string;
+  version: string;
+  model: string;
+  retriever: string;
+  description: string;
+  file: string;
+}
+
+export interface BenchmarkInfo {
+  id: string;
+  name: string;
+  category: string;
+  badge: string;
+  description: string;
+  item_count: number;
+  corpus_size: number;
+  license: string;
+  has_comparison: boolean;
+  dataset_file: string;
+  pipeline_a: PipelineInfo;
+  pipeline_b: PipelineInfo | null;
+}
+
+export interface SystemComparisonMetrics {
+  retrieval_hit: number | null;
+  retrieval_recall: number | null;
+  fact_recall: number | null;
+  token_f1: number | null;
+  citation_precision: number | null;
+  phantom_rate: number | null;
+  supported_claims: number | null;
+  unsupported_claims: number | null;
+  pass_count: number;
+  fail_count: number;
+}
+
+export interface SystemComparisonInfo {
+  name: string;
+  version: string;
+  pipeline: string;
+  run_id: string;
+  result_hash: string;
+  metrics: SystemComparisonMetrics;
+}
+
+export interface ComparisonDeltas {
+  retrieval_hit_delta: number;
+  fact_recall_delta: number;
+  token_f1_delta: number;
+  citation_precision_delta: number;
+  phantom_rate_delta: number;
+  supported_claims_delta: number;
+  pass_count_delta: number;
+}
+
+export interface QuestionComparison {
+  item_id: string;
+  question: string;
+  verdict: "b_improved" | "a_better" | "both_passed" | "both_failed";
+  summary: string;
+  run_a: {
+    answer: string;
+    status: "PASS" | "FAIL";
+    failure_types: string[];
+    issues_count: number;
+    citation_precision: number | null;
+  };
+  run_b: {
+    answer: string;
+    status: "PASS" | "FAIL";
+    failure_types: string[];
+    issues_count: number;
+    citation_precision: number | null;
+  };
+}
+
+export interface ComparisonRunResponse {
+  dataset: {
+    dataset_id: string;
+    name: string;
+    item_count: number;
+  };
+  system_a: SystemComparisonInfo;
+  system_b: SystemComparisonInfo;
+  deltas: ComparisonDeltas;
+  questions: QuestionComparison[];
+}

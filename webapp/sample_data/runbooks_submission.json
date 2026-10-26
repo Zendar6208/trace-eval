@@ -1,0 +1,75 @@
+{
+  "schema_version": "trace.submission/1.0",
+  "dataset_id": "cloud-incident-runbooks-v1",
+  "system": {
+    "name": "DevOps Incident Assistant",
+    "version": "1.2.0",
+    "provenance": {
+      "pipeline_description": "BM25 keyword search + Llama-3-70b-instruct RAG pipeline for SRE incident response",
+      "model_name": "llama-3-70b-instruct",
+      "retriever_name": "opensearch-bm25",
+      "run_timestamp": "2026-10-26T12:00:00Z"
+    }
+  },
+  "outputs": [
+    {
+      "item_id": "q01",
+      "origin": "recorded_system",
+      "answer": "When active connections reach 100, restart pgbouncer and terminate idle connections using a 60 second timeout.[rb01]",
+      "retrieved": [
+        {"id": "rb01", "score": 0.94},
+        {"id": "rb02", "score": 0.51},
+        {"id": "rb06", "score": 0.38}
+      ]
+    },
+    {
+      "item_id": "q02",
+      "origin": "recorded_system",
+      "answer": "Verify the cache eviction policy is configured to allkeys-lru.[rb02]",
+      "retrieved": [
+        {"id": "rb02", "score": 0.92},
+        {"id": "rb01", "score": 0.44},
+        {"id": "rb05", "score": 0.31}
+      ]
+    },
+    {
+      "item_id": "q03",
+      "origin": "recorded_system",
+      "answer": "Execute nginx -s reload to reload SSL certificates without dropping active connections.[rb03]",
+      "retrieved": [
+        {"id": "rb03", "score": 0.96},
+        {"id": "rb04", "score": 0.41},
+        {"id": "rb06", "score": 0.29}
+      ]
+    },
+    {
+      "item_id": "q04",
+      "origin": "recorded_system",
+      "answer": "P1 critical outages require a 15 minute primary on-call response SLA.[rb06]",
+      "retrieved": [
+        {"id": "rb06", "score": 0.95},
+        {"id": "rb01", "score": 0.48},
+        {"id": "rb03", "score": 0.33}
+      ]
+    },
+    {
+      "item_id": "q05",
+      "origin": "recorded_system",
+      "answer": "Capture a heap dump using jcmd before increasing container memory limits.[rb04]",
+      "retrieved": [
+        {"id": "rb04", "score": 0.93},
+        {"id": "rb05", "score": 0.47},
+        {"id": "rb02", "score": 0.36}
+      ]
+    },
+    {
+      "item_id": "q06",
+      "origin": "recorded_system",
+      "answer": "The available incident runbooks do not provide procedures for quantum key distribution failure.",
+      "retrieved": [
+        {"id": "rb06", "score": 0.28},
+        {"id": "rb01", "score": 0.21}
+      ]
+    }
+  ]
+}

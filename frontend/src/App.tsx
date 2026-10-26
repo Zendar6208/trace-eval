@@ -15,9 +15,17 @@ import {
   Sparkles,
   HelpCircle,
   X,
-  Target
+  Target,
+  GitCompare,
+  Database
 } from 'lucide-react';
-import type { EvaluationRunResponse, ItemDetailResponse } from './types';
+import type {
+  EvaluationRunResponse,
+  ItemDetailResponse,
+  BenchmarkInfo,
+  ComparisonRunResponse
+} from './types';
+import { ComparisonView } from './ComparisonView';
 
 const API_BASE = (import.meta as any).env?.VITE_API_URL || '';
 
@@ -156,9 +164,12 @@ function computeDiagnosticSummary(runData: EvaluationRunResponse) {
 
 export default function App() {
   const [runData, setRunData] = useState<EvaluationRunResponse | null>(null);
+  const [comparisonData, setComparisonData] = useState<ComparisonRunResponse | null>(null);
+  const [benchmarks, setBenchmarks] = useState<BenchmarkInfo[]>([]);
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
   const [itemDetail, setItemDetail] = useState<ItemDetailResponse | null>(null);
   const [loading, setLoading] = useState(false);
+  const [loadingMessage, setLoadingMessage] = useState('Evaluating benchmark cases...');
   const [detailLoading, setDetailLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -167,8 +178,10 @@ export default function App() {
   const [activePassageId, setActivePassageId] = useState<string | null>(null);
 
   // Upload State
+  const [customMode, setCustomMode] = useState<'single' | 'compare'>('single');
   const [datasetFile, setDatasetFile] = useState<File | null>(null);
   const [submissionFile, setSubmissionFile] = useState<File | null>(null);
+  const [submissionBFile, setSubmissionBFile] = useState<File | null>(null);
   const [requireCitations, setRequireCitations] = useState(true);
   const [uploadError, setUploadError] = useState<string | null>(null);
 
@@ -181,11 +194,24 @@ export default function App() {
 
   const evidenceSectionRef = useRef<HTMLDivElement>(null);
 
+  // Load benchmarks on mount
+  useEffect(() => {
+    fetch(`${API_BASE}/api/benchmarks`)
+      .then((res) => {
+        if (!res.ok) throw new Error('Failed to load benchmarks');
+        return res.json();
+      })
+      .then((data) => setBenchmarks(data))
+      .catch((err) => console.warn('Benchmarks fetch warning:', err));
+  }, []);
+
   // ── Actions ──────────────────────────────────────────────────────────────────
 
   const runSampleEvaluation = async () => {
     setLoading(true);
+    setLoadingMessage('Evaluating customer service benchmark...');
     setError(null);
+    setComparisonData(null);
     try {
       const res = await fetch(`${API_BASE}/api/evaluate/sample`, { method: 'POST' });
       if (!res.ok) {
@@ -199,6 +225,119 @@ export default function App() {
       }
     } catch (err: any) {
       setError(err.message || 'Failed to execute sample evaluation');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const runBenchmarkEvaluation = async (benchmarkId: string, pipeline: string = 'a') => {
+    setLoading(true);
+    setLoadingMessage(`Evaluating ${benchmarkId} (${pipeline.toUpperCase()})...`);
+    setError(null);
+    setComparisonData(null);
+    try {
+      const res = await fetch(
+        `${API_BASE}/api/evaluate/benchmark/${benchmarkId}?pipeline=${pipeline}`,
+        { method: 'POST' }
+      );
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(text || `HTTP error ${res.status}`);
+      }
+      const data: EvaluationRunResponse = await res.json();
+      setRunData(data);
+      if (data.items.length > 0) {
+        selectItem(data.items[0].item_id);
+      }
+    } catch (err: any) {
+      setError(err.message || 'Benchmark evaluation failed');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const runBenchmarkComparison = async (benchmarkId: string) => {
+    setLoading(true);
+    setLoadingMessage('Running side-by-side RAG evaluation & comparison...');
+    setError(null);
+    setRunData(null);
+    try {
+      const res = await fetch(`${API_BASE}/api/evaluate/compare`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ benchmark_id: benchmarkId }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        throw new Error(data?.detail || `HTTP error ${res.status}`);
+      }
+      const data: ComparisonRunResponse = await res.json();
+      setComparisonData(data);
+    } catch (err: any) {
+      setError(err.message || 'Comparison failed');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleUploadComparison = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!datasetFile || !submissionFile || !submissionBFile) {
+      setUploadError('Please select dataset.json, Submission A, and Submission B files.');
+      return;
+    }
+
+    setLoading(true);
+    setLoadingMessage('Evaluating and comparing both custom RAG pipelines...');
+    setUploadError(null);
+    setRunData(null);
+    try {
+      const datasetText = await datasetFile.text();
+      const submissionAText = await submissionFile.text();
+      const submissionBText = await submissionBFile.text();
+
+      let datasetJson: any;
+      let submissionAJson: any;
+      let submissionBJson: any;
+
+      try {
+        datasetJson = JSON.parse(datasetText);
+      } catch {
+        throw new Error('Dataset file is not valid JSON.');
+      }
+      try {
+        submissionAJson = JSON.parse(submissionAText);
+      } catch {
+        throw new Error('Submission A file is not valid JSON.');
+      }
+      try {
+        submissionBJson = JSON.parse(submissionBText);
+      } catch {
+        throw new Error('Submission B file is not valid JSON.');
+      }
+
+      const res = await fetch(`${API_BASE}/api/evaluate/compare`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          dataset: datasetJson,
+          submission_a: submissionAJson,
+          submission_b: submissionBJson,
+          require_citations: requireCitations,
+          citation_style: 'id',
+          phantom_mode: 'bracket',
+        }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        throw new Error(data?.detail || `HTTP ${res.status}: Comparison evaluation failed.`);
+      }
+
+      const result: ComparisonRunResponse = await res.json();
+      setComparisonData(result);
+    } catch (err: any) {
+      setUploadError(err.message || 'Comparison evaluation failed.');
     } finally {
       setLoading(false);
     }
@@ -326,7 +465,7 @@ export default function App() {
     }
   };
 
-  const downloadSample = async (type: 'dataset' | 'submission') => {
+  const downloadSample = async (type: 'dataset' | 'submission' | 'submission_b') => {
     try {
       const res = await fetch(`${API_BASE}/api/sample/${type}`);
       if (!res.ok) throw new Error('Failed to fetch template');
@@ -394,16 +533,58 @@ export default function App() {
 
       {/* ── Main View ── */}
       <main className="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-8">
-        {!runData ? (
+        {loading ? (
           /* ══════════════════════════════════════════════════════════════════════
-             SCREEN 1: SIGNATURE KINETIC LANDING & WORKSPACE
+             LOADING ANIMATION: SIGNATURE 4-STAGE EVALUATION SEQUENCE
              ══════════════════════════════════════════════════════════════════════ */
-          <div className="space-y-12 max-w-4xl mx-auto pt-6 pb-16">
-            {/* Signature Animation 1: Kinetic Typography */}
+          <div className="max-w-2xl mx-auto pt-16 pb-24 animate-hero-1">
+            <div className="bg-[#141824] border border-[#10B981]/40 rounded-3xl p-8 sm:p-12 text-center shadow-2xl space-y-8 animate-card-1">
+              <div className="space-y-3">
+                <div className="w-12 h-12 rounded-full border-2 border-[#10B981] border-t-transparent animate-spin mx-auto shadow-lg" />
+                <h2 className="text-2xl font-serif font-bold text-white">
+                  {loadingMessage}
+                </h2>
+                <p className="text-sm text-[#94A3B8] max-w-md mx-auto">
+                  Running deterministic metrics and local cross-encoder NLI verification.
+                </p>
+              </div>
+
+              {/* The 4-Stage Evaluation Sequence */}
+              <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 max-w-xl mx-auto text-left font-mono text-xs">
+                <div className="p-3 rounded-xl bg-[#0C0F17] border border-[#1F2639] flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-[#10B981] animate-ping" />
+                  <span className="text-[#94A3B8]">1. Passages</span>
+                </div>
+                <div className="p-3 rounded-xl bg-[#0C0F17] border border-[#1F2639] flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-[#10B981] animate-ping" />
+                  <span className="text-[#94A3B8]">2. Correctness</span>
+                </div>
+                <div className="p-3 rounded-xl bg-[#0C0F17] border border-[#1F2639] flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-[#10B981] animate-ping" />
+                  <span className="text-[#94A3B8]">3. Citations</span>
+                </div>
+                <div className="p-3 rounded-xl bg-[#0C0F17] border border-[#1F2639] flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-[#10B981] animate-ping" />
+                  <span className="text-[#94A3B8]">4. Grounding</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        ) : comparisonData ? (
+          /* ══════════════════════════════════════════════════════════════════════
+             SCREEN 3: RAG COMPARISON LAB
+             ══════════════════════════════════════════════════════════════════════ */
+          <ComparisonView data={comparisonData} onBack={() => setComparisonData(null)} />
+        ) : !runData ? (
+          /* ══════════════════════════════════════════════════════════════════════
+             SCREEN 1: DUAL-ENTRY HOMEPAGE (EVALUATE → EXPLAIN → COMPARE)
+             ══════════════════════════════════════════════════════════════════════ */
+          <div className="space-y-12 max-w-5xl mx-auto pt-4 pb-16">
+            {/* Signature Animation 1: Kinetic Editorial Hero */}
             <div className="text-center space-y-4">
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#10B981]/10 text-[#10B981] border border-[#10B981]/20 text-xs font-medium animate-hero-1">
+              <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-[#10B981]/10 text-[#10B981] border border-[#10B981]/20 text-xs font-semibold animate-hero-1">
                 <Sparkles className="w-3.5 h-3.5" />
-                <span>Deterministic-First RAG Evaluation Engine</span>
+                <span>Evaluate → Explain → Compare • TRACE AI</span>
               </div>
 
               <h1 className="text-4xl sm:text-6xl font-serif font-bold tracking-tight text-white leading-[1.1] animate-hero-1">
@@ -412,8 +593,8 @@ export default function App() {
               </h1>
 
               <p className="text-base sm:text-lg text-[#94A3B8] max-w-2xl mx-auto leading-relaxed animate-hero-2">
-                Trace every factual claim back to retrieved evidence, identify hallucinations with local
-                cross-encoder inference, and isolate retrieval failures with cryptographic reproducibility.
+                Trace factual claims back to retrieved evidence, identify hallucinations with local
+                cross-encoder inference, and compare RAG pipelines with cryptographic reproducibility.
               </p>
             </div>
 
@@ -427,182 +608,293 @@ export default function App() {
               </div>
             )}
 
-            {/* Signature Animation 2 & 3: Evaluation Sequence & Workspace */}
-            {loading ? (
-              <div className="bg-[#141824] border border-[#10B981]/40 rounded-3xl p-8 sm:p-12 text-center shadow-2xl space-y-8 animate-card-1">
-                <div className="space-y-3">
-                  <div className="w-12 h-12 rounded-full border-2 border-[#10B981] border-t-transparent animate-spin mx-auto shadow-lg" />
-                  <h2 className="text-2xl font-serif font-bold text-white">
-                    Evaluating benchmark cases...
-                  </h2>
-                  <p className="text-sm text-[#94A3B8] max-w-md mx-auto">
-                    Running deterministic metrics and local cross-encoder NLI verification.
-                  </p>
-                </div>
+            {/* ── TWO CLEAR ENTRY POINTS: Option A & Option B ── */}
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start animate-hero-3">
+              {/* Option A: Bring Your Own Data (7 cols) */}
+              <div className="lg:col-span-7 bg-[#141824] border border-[#1F2639] rounded-3xl p-6 sm:p-8 flex flex-col justify-between hover:border-[#10B981]/40 transition duration-200 shadow-xl space-y-6">
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-mono font-bold bg-[#10B981]/15 text-[#10B981] px-3 py-1 rounded-lg border border-[#10B981]/30 flex items-center gap-1.5">
+                      <Upload className="w-3.5 h-3.5" />
+                      <span>Option A</span>
+                    </span>
 
-                {/* The 4-Stage Evaluation Sequence */}
-                <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 max-w-2xl mx-auto text-left font-mono text-xs">
-                  <div className="p-3 rounded-xl bg-[#0C0F17] border border-[#1F2639] flex items-center gap-2">
-                    <span className="w-2 h-2 rounded-full bg-[#10B981] animate-ping" />
-                    <span className="text-[#94A3B8]">1. Passages</span>
-                  </div>
-                  <div className="p-3 rounded-xl bg-[#0C0F17] border border-[#1F2639] flex items-center gap-2">
-                    <span className="w-2 h-2 rounded-full bg-[#10B981] animate-ping" />
-                    <span className="text-[#94A3B8]">2. Correctness</span>
-                  </div>
-                  <div className="p-3 rounded-xl bg-[#0C0F17] border border-[#1F2639] flex items-center gap-2">
-                    <span className="w-2 h-2 rounded-full bg-[#10B981] animate-ping" />
-                    <span className="text-[#94A3B8]">3. Citations</span>
-                  </div>
-                  <div className="p-3 rounded-xl bg-[#0C0F17] border border-[#1F2639] flex items-center gap-2">
-                    <span className="w-2 h-2 rounded-full bg-[#10B981] animate-ping" />
-                    <span className="text-[#94A3B8]">4. Grounding</span>
-                  </div>
-                </div>
-              </div>
-            ) : (
-              <div className="space-y-4 animate-hero-3">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-stretch">
-                  {/* Option 1: Sample Evaluation */}
-                  <div className="bg-[#141824] border border-[#1F2639] rounded-2xl p-6 flex flex-col justify-between hover:border-[#10B981]/40 transition duration-200 shadow-lg">
-                    <div className="space-y-4">
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs font-mono font-medium bg-[#10B981]/15 text-[#10B981] px-2.5 py-1 rounded-md">
-                          Instant • Tier 1 Hybrid
-                        </span>
-                      </div>
-
-                      <div>
-                        <h2 className="font-serif text-2xl font-bold text-white">Try Sample Evaluation</h2>
-                        <p className="text-sm text-[#94A3B8] mt-2 leading-relaxed">
-                          Test TRACE with a curated enterprise benchmark comparing customer support queries,
-                          policy lookups, phantom citations, and unsupported answers.
-                        </p>
-                      </div>
-
-                      <div className="space-y-2 pt-2 text-xs text-[#94A3B8] border-t border-[#1F2639]">
-                        <div className="flex items-center gap-2">
-                          <CheckCircle2 className="w-4 h-4 text-[#10B981]" />
-                          <span>Pre-configured dataset & model responses</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <CheckCircle2 className="w-4 h-4 text-[#10B981]" />
-                          <span>Real local cross-encoder NLI inference</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <CheckCircle2 className="w-4 h-4 text-[#10B981]" />
-                          <span>Sentence-level claim and citation verification</span>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="pt-6">
+                    {/* Mode Toggle Pills */}
+                    <div className="flex items-center gap-1 bg-[#0C0F17] p-1 rounded-xl border border-[#1F2639] text-xs font-mono">
                       <button
-                        onClick={runSampleEvaluation}
-                        disabled={loading}
-                        className="w-full inline-flex items-center justify-center gap-2 bg-[#10B981] hover:bg-[#059669] text-[#0C0F17] font-semibold py-3 px-4 rounded-xl transition cursor-pointer active:scale-[0.98] disabled:opacity-50 text-sm shadow-md"
+                        type="button"
+                        onClick={() => {
+                          setCustomMode('single');
+                          setUploadError(null);
+                        }}
+                        className={`px-3 py-1 rounded-lg transition cursor-pointer ${
+                          customMode === 'single'
+                            ? 'bg-[#10B981] text-[#0C0F17] font-bold'
+                            : 'text-[#94A3B8] hover:text-white'
+                        }`}
                       >
-                        <Play className="w-4 h-4 fill-[#0C0F17]" />
-                        <span>Run Sample Evaluation</span>
+                        Single Evaluation
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setCustomMode('compare');
+                          setUploadError(null);
+                        }}
+                        className={`px-3 py-1 rounded-lg transition cursor-pointer ${
+                          customMode === 'compare'
+                            ? 'bg-[#10B981] text-[#0C0F17] font-bold'
+                            : 'text-[#94A3B8] hover:text-white'
+                        }`}
+                      >
+                        Compare Two
                       </button>
                     </div>
                   </div>
 
-                  {/* Option 2: Upload Evaluation */}
-                  <div className="bg-[#141824] border border-[#1F2639] rounded-2xl p-6 flex flex-col justify-between hover:border-[#10B981]/40 transition duration-200 shadow-lg">
-                    <div className="space-y-4">
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs font-mono font-medium bg-[#1F2639] text-[#94A3B8] px-2.5 py-1 rounded-md">
-                          Custom Run
-                        </span>
-                      </div>
+                  <div>
+                    <h2 className="font-serif text-2xl font-bold text-white">Bring Your Own Data</h2>
+                    <p className="text-xs sm:text-sm text-[#94A3B8] mt-1 leading-relaxed">
+                      {customMode === 'single'
+                        ? 'Evaluate your own RAG system by uploading your dataset and submission JSON files conforming to TRACE methodology contracts.'
+                        : 'Upload two RAG submissions evaluated against the same dataset to compare retrieval, citation quality, and grounding side by side.'}
+                    </p>
+                  </div>
 
-                      <div>
-                        <h2 className="font-serif text-2xl font-bold text-white">Upload Evaluation Data</h2>
-                        <p className="text-sm text-[#94A3B8] mt-2 leading-relaxed">
-                          Evaluate your own RAG system by uploading your dataset and submission JSON files
-                          conforming to TRACE methodology contracts.
-                        </p>
-                      </div>
+                  <form
+                    id="custom-form"
+                    onSubmit={customMode === 'single' ? handleUploadEvaluation : handleUploadComparison}
+                    className="space-y-4 pt-2"
+                  >
+                    <div>
+                      <label className="block text-xs font-medium text-[#F8FAFC] mb-1">
+                        Evaluation Dataset (<span className="font-mono text-[11px] text-[#94A3B8]">trace.dataset/1.0</span>)
+                      </label>
+                      <input
+                        type="file"
+                        accept=".json"
+                        onChange={(e) => setDatasetFile(e.target.files?.[0] || null)}
+                        className="w-full text-xs text-[#94A3B8] file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-[#10B981]/20 file:text-[#10B981] hover:file:bg-[#10B981]/30 file:cursor-pointer border border-[#1F2639] rounded-xl p-2 bg-[#0C0F17]"
+                      />
+                    </div>
 
-                      <form id="upload-form" onSubmit={handleUploadEvaluation} className="space-y-3 pt-1">
-                        <div>
-                          <label className="block text-xs font-medium text-[#F8FAFC] mb-1">
-                            Dataset JSON (<span className="font-mono text-[11px] text-[#94A3B8]">trace.dataset/1.0</span>)
-                          </label>
-                          <input
-                            type="file"
-                            accept=".json"
-                            onChange={(e) => setDatasetFile(e.target.files?.[0] || null)}
-                            className="w-full text-xs text-[#94A3B8] file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-[#10B981]/20 file:text-[#10B981] hover:file:bg-[#10B981]/30 file:cursor-pointer border border-[#1F2639] rounded-lg p-1.5 bg-[#0C0F17]"
-                          />
-                        </div>
+                    <div>
+                      <label className="block text-xs font-medium text-[#F8FAFC] mb-1">
+                        {customMode === 'single' ? 'System Submission JSON' : 'Submission A (Baseline System)'} (<span className="font-mono text-[11px] text-[#94A3B8]">trace.submission/1.0</span>)
+                      </label>
+                      <input
+                        type="file"
+                        accept=".json"
+                        onChange={(e) => setSubmissionFile(e.target.files?.[0] || null)}
+                        className="w-full text-xs text-[#94A3B8] file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-[#10B981]/20 file:text-[#10B981] hover:file:bg-[#10B981]/30 file:cursor-pointer border border-[#1F2639] rounded-xl p-2 bg-[#0C0F17]"
+                      />
+                    </div>
 
-                        <div>
-                          <label className="block text-xs font-medium text-[#F8FAFC] mb-1">
-                            Submission JSON (<span className="font-mono text-[11px] text-[#94A3B8]">trace.submission/1.0</span>)
-                          </label>
-                          <input
-                            type="file"
-                            accept=".json"
-                            onChange={(e) => setSubmissionFile(e.target.files?.[0] || null)}
-                            className="w-full text-xs text-[#94A3B8] file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-[#10B981]/20 file:text-[#10B981] hover:file:bg-[#10B981]/30 file:cursor-pointer border border-[#1F2639] rounded-lg p-1.5 bg-[#0C0F17]"
-                          />
-                        </div>
-
-                        <label className="flex items-center gap-2 pt-1 text-xs text-[#94A3B8] cursor-pointer">
-                          <input
-                            type="checkbox"
-                            checked={requireCitations}
-                            onChange={(e) => setRequireCitations(e.target.checked)}
-                            className="rounded border-[#1F2639] text-[#10B981] focus:ring-[#10B981] bg-[#0C0F17]"
-                          />
-                          <span>Require & evaluate citations</span>
+                    {customMode === 'compare' && (
+                      <div className="animate-scale-in">
+                        <label className="block text-xs font-medium text-[#F8FAFC] mb-1">
+                          Submission B (Candidate System) (<span className="font-mono text-[11px] text-[#94A3B8]">trace.submission/1.0</span>)
                         </label>
+                        <input
+                          type="file"
+                          accept=".json"
+                          onChange={(e) => setSubmissionBFile(e.target.files?.[0] || null)}
+                          className="w-full text-xs text-[#94A3B8] file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-[#10B981]/20 file:text-[#10B981] hover:file:bg-[#10B981]/30 file:cursor-pointer border border-[#1F2639] rounded-xl p-2 bg-[#0C0F17]"
+                        />
+                      </div>
+                    )}
 
-                        <div className="flex items-center gap-3 pt-1 text-[11px] text-[#64748B]">
-                          <button
-                            type="button"
-                            onClick={() => downloadSample('dataset')}
-                            className="inline-flex items-center gap-1 hover:text-[#10B981] underline cursor-pointer active:scale-95"
-                          >
-                            <Download className="w-3 h-3" />
-                            <span>Sample dataset.json</span>
-                          </button>
+                    <label className="flex items-center gap-2 pt-1 text-xs text-[#94A3B8] cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={requireCitations}
+                        onChange={(e) => setRequireCitations(e.target.checked)}
+                        className="rounded border-[#1F2639] text-[#10B981] focus:ring-[#10B981] bg-[#0C0F17]"
+                      />
+                      <span>Require & evaluate inline citations</span>
+                    </label>
+
+                    {/* Template download links */}
+                    <div className="flex flex-wrap items-center gap-2.5 pt-1 text-[11px] text-[#64748B]">
+                      <button
+                        type="button"
+                        onClick={() => downloadSample('dataset')}
+                        className="inline-flex items-center gap-1 hover:text-[#10B981] underline cursor-pointer active:scale-95"
+                      >
+                        <Download className="w-3 h-3" />
+                        <span>Dataset template</span>
+                      </button>
+                      <span>•</span>
+                      <button
+                        type="button"
+                        onClick={() => downloadSample('submission')}
+                        className="inline-flex items-center gap-1 hover:text-[#10B981] underline cursor-pointer active:scale-95"
+                      >
+                        <Download className="w-3 h-3" />
+                        <span>Submission A template</span>
+                      </button>
+                      {customMode === 'compare' && (
+                        <>
                           <span>•</span>
                           <button
                             type="button"
-                            onClick={() => downloadSample('submission')}
+                            onClick={() => downloadSample('submission_b')}
                             className="inline-flex items-center gap-1 hover:text-[#10B981] underline cursor-pointer active:scale-95"
                           >
                             <Download className="w-3 h-3" />
-                            <span>Sample submission.json</span>
+                            <span>Submission B template</span>
                           </button>
-                        </div>
-
-                        {uploadError && (
-                          <div className="p-2.5 rounded-lg bg-[#7F1D1D]/30 border border-[#EF4444]/30 text-[#F87171] text-xs">
-                            {uploadError}
-                          </div>
-                        )}
-                      </form>
+                        </>
+                      )}
                     </div>
 
-                    <div className="pt-6">
-                      <button
-                        type="submit"
-                        form="upload-form"
-                        disabled={loading || !datasetFile || !submissionFile}
-                        className="w-full inline-flex items-center justify-center gap-2 bg-[#F8FAFC] hover:bg-white text-[#0C0F17] font-semibold py-3 px-4 rounded-xl transition cursor-pointer active:scale-[0.98] disabled:opacity-40 text-sm shadow-md"
-                      >
+                    {uploadError && (
+                      <div className="p-3 rounded-xl bg-[#7F1D1D]/30 border border-[#EF4444]/30 text-[#F87171] text-xs">
+                        {uploadError}
+                      </div>
+                    )}
+                  </form>
+                </div>
+
+                <div className="pt-2">
+                  <button
+                    type="submit"
+                    form="custom-form"
+                    disabled={
+                      loading ||
+                      !datasetFile ||
+                      !submissionFile ||
+                      (customMode === 'compare' && !submissionBFile)
+                    }
+                    className="w-full inline-flex items-center justify-center gap-2 bg-[#F8FAFC] hover:bg-white text-[#0C0F17] font-semibold py-3 px-4 rounded-xl transition cursor-pointer active:scale-[0.98] disabled:opacity-40 text-sm shadow-md"
+                  >
+                    {customMode === 'single' ? (
+                      <>
                         <Upload className="w-4 h-4" />
                         <span>Evaluate Uploaded Files</span>
-                      </button>
-                    </div>
-                  </div>
+                      </>
+                    ) : (
+                      <>
+                        <GitCompare className="w-4 h-4" />
+                        <span>Compare Two Pipelines</span>
+                      </>
+                    )}
+                  </button>
                 </div>
               </div>
-            )}
+
+              {/* Option B: Explore Benchmarks (5 cols) */}
+              <div className="lg:col-span-5 space-y-4">
+                <div className="flex items-center justify-between px-1">
+                  <span className="text-xs font-mono font-bold bg-[#1F2639] text-[#94A3B8] px-3 py-1 rounded-lg flex items-center gap-1.5">
+                    <Database className="w-3.5 h-3.5 text-[#10B981]" />
+                    <span>Option B</span>
+                  </span>
+                  <span className="text-[11px] font-mono text-[#64748B]">Ready-to-Evaluate Benchmarks</span>
+                </div>
+
+                <div className="space-y-4">
+                  {(benchmarks.length > 0
+                    ? benchmarks
+                    : [
+                        {
+                          id: 'hariom-refund-demo-v1',
+                          name: 'Customer Support & Refund Policies',
+                          category: 'Enterprise Policy',
+                          badge: '2 Pipelines • Ready to Compare',
+                          description:
+                            'Evaluates multi-tier refund policies, 30-day timelines, return shipping exceptions, and unsupported questions.',
+                          item_count: 6,
+                          corpus_size: 6,
+                          license: 'CC-BY-4.0',
+                          has_comparison: true,
+                          pipeline_a: { name: 'Dense+BM25', model: 'Flash' },
+                          pipeline_b: { name: 'Grounded', model: 'Pro' },
+                        },
+                        {
+                          id: 'cloud-incident-runbooks-v1',
+                          name: 'Cloud Infrastructure Runbooks',
+                          category: 'DevOps & Cloud SRE',
+                          badge: 'DevOps & Cloud SRE',
+                          description:
+                            'Mission-critical incident response benchmark testing PostgreSQL connection pool saturation, Redis LRU memory watermarks, and TLS renewals.',
+                          item_count: 6,
+                          corpus_size: 6,
+                          license: 'CC-BY-4.0',
+                          has_comparison: false,
+                          pipeline_a: { name: 'DevOps Assistant', model: 'Llama-3-70b' },
+                          pipeline_b: null,
+                        },
+                      ]
+                  ).map((bm: any) => (
+                    <div
+                      key={bm.id}
+                      className={`bg-[#141824] border rounded-3xl p-6 shadow-xl space-y-4 transition ${
+                        bm.has_comparison
+                          ? 'border-[#10B981]/30 hover:border-[#10B981]/60'
+                          : 'border-[#1F2639] hover:border-[#10B981]/40'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span
+                          className={`text-[10px] font-mono uppercase tracking-wider px-2.5 py-0.5 rounded-full font-bold ${
+                            bm.has_comparison
+                              ? 'text-[#10B981] bg-[#10B981]/15 border border-[#10B981]/30'
+                              : 'text-[#94A3B8] bg-[#0C0F17] border border-[#1F2639]'
+                          }`}
+                        >
+                          {bm.badge || bm.category}
+                        </span>
+                        <span className="text-[10px] font-mono text-[#64748B]">{bm.license}</span>
+                      </div>
+
+                      <div>
+                        <h3 className="font-serif text-lg font-bold text-white">{bm.name}</h3>
+                        <p className="text-xs text-[#94A3B8] mt-1 leading-relaxed">{bm.description}</p>
+                      </div>
+
+                      <div className="p-3 rounded-xl bg-[#0C0F17] border border-[#1F2639] text-xs font-mono space-y-1.5 text-[#94A3B8]">
+                        <div className="flex items-center justify-between">
+                          <span>Cases: {bm.item_count} questions</span>
+                          <span>Corpus: {bm.corpus_size} passages</span>
+                        </div>
+                        {bm.pipeline_b ? (
+                          <div className="text-[11px] text-[#64748B] pt-1 border-t border-[#1F2639]/60 flex items-center justify-between">
+                            <span>A: {bm.pipeline_a?.name || 'Baseline'} ({bm.pipeline_a?.model || 'Flash'})</span>
+                            <span className="text-[#10B981]">B: {bm.pipeline_b?.name || 'Grounded'} ({bm.pipeline_b?.model || 'Pro'})</span>
+                          </div>
+                        ) : (
+                          <div className="text-[11px] text-[#64748B] pt-1 border-t border-[#1F2639]/60">
+                            Model: {bm.pipeline_a?.model || 'Default'}
+                          </div>
+                        )}
+                      </div>
+
+                      <div className={`grid gap-2 pt-1 ${bm.has_comparison ? 'grid-cols-1 sm:grid-cols-2' : 'grid-cols-1'}`}>
+                        <button
+                          onClick={() => bm.id === 'hariom-refund-demo-v1' ? runSampleEvaluation() : runBenchmarkEvaluation(bm.id, 'a')}
+                          disabled={loading}
+                          className="inline-flex items-center justify-center gap-1.5 bg-[#1F2639] hover:bg-[#2A344D] text-[#E2E8F0] font-semibold py-2.5 px-3 rounded-xl transition cursor-pointer text-xs active:scale-95"
+                        >
+                          <Play className="w-3.5 h-3.5 fill-current text-[#10B981]" />
+                          <span>{bm.has_comparison ? 'Evaluate Baseline' : 'Evaluate Benchmark'}</span>
+                        </button>
+                        {bm.has_comparison && (
+                          <button
+                            onClick={() => runBenchmarkComparison(bm.id)}
+                            disabled={loading}
+                            className="inline-flex items-center justify-center gap-1.5 bg-[#10B981] hover:bg-[#059669] text-[#0C0F17] font-bold py-2.5 px-3 rounded-xl transition cursor-pointer text-xs active:scale-95 shadow-md"
+                          >
+                            <GitCompare className="w-3.5 h-3.5" />
+                            <span>Compare (Lab)</span>
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
           </div>
         ) : (
           /* ══════════════════════════════════════════════════════════════════════
